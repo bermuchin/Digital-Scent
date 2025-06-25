@@ -12,10 +12,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 설정
+# CORS 설정 - 배포 환경용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
+    allow_origins=[
+        "http://localhost:3000",  # 로컬 개발
+        "http://localhost:3001",  # 로컬 개발 (다른 포트)
+        "https://*.vercel.app",   # Vercel 배포
+        "https://*.netlify.app",  # Netlify 배포
+        "https://*.railway.app",  # Railway 배포
+        "https://*.render.com",   # Render 배포
+        "https://*.herokuapp.com", # Heroku 배포
+        "*"  # 모든 도메인 허용 (개발 중에만 사용)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

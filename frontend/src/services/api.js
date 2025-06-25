@@ -1,13 +1,42 @@
 import axios from 'axios';
 
+// 배포 환경에서는 환경변수에서 API URL을 가져오고, 로컬에서는 localhost 사용
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+console.log('API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // CORS 설정
+  withCredentials: false,
 });
+
+// 요청 인터셉터 - 로깅
+api.interceptors.request.use(
+  (config) => {
+    console.log('API Request:', config.method?.toUpperCase(), config.url);
+    return config;
+  },
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터 - 에러 처리
+api.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('API Response Error:', error.response?.status, error.response?.data);
+    return Promise.reject(error);
+  }
+);
 
 // 사용자 관련 API
 export const userAPI = {
