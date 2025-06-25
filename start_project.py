@@ -10,6 +10,10 @@ import threading
 import time
 from pathlib import Path
 
+# 스크립트가 있는 디렉토리로 이동 (프로젝트 루트)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+
 def print_banner():
     """프로젝트 배너를 출력합니다."""
     print("🎀" * 50)
