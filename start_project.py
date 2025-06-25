@@ -113,13 +113,15 @@ def setup_frontend():
     """프론트엔드를 설정합니다."""
     print("\n🔧 프론트엔드 설정을 시작합니다...")
     
-    # frontend 디렉토리 확인
-    if not Path("frontend").exists():
+    # frontend 디렉토리 확인 (절대 경로 사용)
+    frontend_dir = Path(script_dir) / "frontend"
+    if not frontend_dir.exists():
         print("❌ frontend 디렉토리를 찾을 수 없습니다.")
         return False
     
     # package.json 확인
-    if not Path("frontend/package.json").exists():
+    package_json = frontend_dir / "package.json"
+    if not package_json.exists():
         print("❌ package.json 파일을 찾을 수 없습니다.")
         return False
     
@@ -140,12 +142,14 @@ def setup_frontend():
     # 의존성 설치
     print("📦 React 의존성을 설치합니다...")
     try:
-        os.chdir("frontend")
+        os.chdir(str(frontend_dir))
+        print(f"✅ frontend 디렉토리로 이동: {os.getcwd()}")
         subprocess.run([npm_cmd, "install"], check=True)
-        os.chdir("..")
+        os.chdir(script_dir)
         print("✅ 의존성 설치 완료")
     except subprocess.CalledProcessError:
         print("❌ 의존성 설치에 실패했습니다.")
+        os.chdir(script_dir)
         return False
     
     return True
@@ -175,6 +179,13 @@ def run_frontend():
     print("\n🚀 프론트엔드 서버를 시작합니다...")
     print("📍 서버 주소: http://localhost:3000")
     
+    # frontend 디렉토리 확인 (절대 경로 사용)
+    frontend_dir = Path(script_dir) / "frontend"
+    if not frontend_dir.exists():
+        print(f"❌ frontend 디렉토리를 찾을 수 없습니다. 현재 디렉토리: {os.getcwd()}")
+        print(f"🔍 찾는 경로: {frontend_dir}")
+        return
+    
     # npm 경로 찾기
     npm_cmd = "npm"
     npm_paths = [
@@ -190,12 +201,19 @@ def run_frontend():
             break
     
     try:
-        os.chdir("frontend")
+        # frontend 디렉토리로 이동
+        os.chdir(str(frontend_dir))
+        print(f"✅ frontend 디렉토리로 이동: {os.getcwd()}")
+        
+        # npm start 실행
         subprocess.run([npm_cmd, "start"], shell=True)
     except KeyboardInterrupt:
         print("\n👋 프론트엔드 서버가 중지되었습니다.")
+    except Exception as e:
+        print(f"❌ 프론트엔드 서버 실행 중 오류: {e}")
     finally:
-        os.chdir("..")
+        # 원래 디렉토리로 복귀
+        os.chdir(script_dir)
 
 def main():
     """메인 함수"""

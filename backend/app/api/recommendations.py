@@ -19,7 +19,7 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
         age=request.age,
         gender=request.gender,
         personality=request.personality,
-        season_preference=request.season_preference
+        season=request.season_preference
     )
     
     # 해당 카테고리의 향수들 조회
