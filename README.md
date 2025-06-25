@@ -169,14 +169,10 @@ npm run build
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
-
 ## 문의
 
 프로젝트에 대한 문의사항이 있으시면 이슈를 생성해주세요.
 
 ---
 
-**향수 추천 플랫폼** - 당신만을 위한 완벽한 향수를 찾아드립니다! 🌸 
+**향수 추천 플랫폼** - 당신만을 위한 완벽한 향수를 찾아드립니다!
