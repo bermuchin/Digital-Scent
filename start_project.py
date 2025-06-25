@@ -43,15 +43,36 @@ def check_requirements():
     
     # npm 확인
     try:
+        # 먼저 일반적인 npm 경로 시도
         result = subprocess.run(["npm", "--version"], capture_output=True, text=True)
         if result.returncode == 0:
             print(f"✅ npm 버전: {result.stdout.strip()}")
         else:
+            raise FileNotFoundError
+    except FileNotFoundError:
+        # npm 전체 경로 시도
+        npm_paths = [
+            r"C:\Program Files\nodejs\npm.cmd",
+            r"C:\Program Files\nodejs\npm.ps1",
+            r"C:\Program Files (x86)\nodejs\npm.cmd",
+            r"C:\Program Files (x86)\nodejs\npm.ps1"
+        ]
+        
+        npm_found = False
+        for npm_path in npm_paths:
+            if os.path.exists(npm_path):
+                try:
+                    result = subprocess.run([npm_path, "--version"], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        print(f"✅ npm 버전: {result.stdout.strip()}")
+                        npm_found = True
+                        break
+                except Exception:
+                    continue
+        
+        if not npm_found:
             print("❌ npm이 설치되어 있지 않습니다.")
             return False
-    except FileNotFoundError:
-        print("❌ npm이 설치되어 있지 않습니다.")
-        return False
     
     return True
 
@@ -98,11 +119,25 @@ def setup_frontend():
         print("❌ package.json 파일을 찾을 수 없습니다.")
         return False
     
+    # npm 경로 찾기
+    npm_cmd = "npm"
+    npm_paths = [
+        r"C:\Program Files\nodejs\npm.cmd",
+        r"C:\Program Files\nodejs\npm.ps1",
+        r"C:\Program Files (x86)\nodejs\npm.cmd",
+        r"C:\Program Files (x86)\nodejs\npm.ps1"
+    ]
+    
+    for npm_path in npm_paths:
+        if os.path.exists(npm_path):
+            npm_cmd = npm_path
+            break
+    
     # 의존성 설치
     print("📦 React 의존성을 설치합니다...")
     try:
         os.chdir("frontend")
-        subprocess.run(["npm", "install"], check=True)
+        subprocess.run([npm_cmd, "install"], check=True)
         os.chdir("..")
         print("✅ 의존성 설치 완료")
     except subprocess.CalledProcessError:
@@ -136,9 +171,23 @@ def run_frontend():
     print("\n🚀 프론트엔드 서버를 시작합니다...")
     print("📍 서버 주소: http://localhost:3000")
     
+    # npm 경로 찾기
+    npm_cmd = "npm"
+    npm_paths = [
+        r"C:\Program Files\nodejs\npm.cmd",
+        r"C:\Program Files\nodejs\npm.ps1",
+        r"C:\Program Files (x86)\nodejs\npm.cmd",
+        r"C:\Program Files (x86)\nodejs\npm.ps1"
+    ]
+    
+    for npm_path in npm_paths:
+        if os.path.exists(npm_path):
+            npm_cmd = npm_path
+            break
+    
     try:
         os.chdir("frontend")
-        subprocess.run(["npm", "start"])
+        subprocess.run([npm_cmd, "start"], shell=True)
     except KeyboardInterrupt:
         print("\n👋 프론트엔드 서버가 중지되었습니다.")
     finally:
