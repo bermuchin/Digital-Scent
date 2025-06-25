@@ -14,39 +14,45 @@ recommendation_model = PerfumeRecommendationModel()
 @router.post("/", response_model=RecommendationResponse)
 def get_recommendation(request: RecommendationRequest, db: Session = Depends(get_db)):
     """사용자 선호도에 따른 향수를 추천합니다."""
+    # 입력 데이터 검증 및 기본값 설정
+    age = request.age if request.age else 25
+    gender = request.gender if request.gender and request.gender.strip() else "other"
+    personality = request.personality if request.personality and request.personality.strip() else "balanced"
+    season_preference = request.season_preference if request.season_preference and request.season_preference.strip() else "spring"
+    
     # ML 모델로 향수 카테고리 예측
     predicted_category, confidence = recommendation_model.predict_category(
-        age=request.age,
-        gender=request.gender,
-        personality=request.personality,
-        season=request.season_preference
+        age=age,
+        gender=gender,
+        personality=personality,
+        season=season_preference
     )
     
     # 해당 카테고리의 향수들 조회
     query = db.query(Perfume).filter(Perfume.category == predicted_category)
     
     # 추가 필터링
-    if request.age < 30:
+    if age < 30:
         query = query.filter(Perfume.age_group == "young")
-    elif request.age > 50:
+    elif age > 50:
         query = query.filter(Perfume.age_group == "mature")
     else:
         query = query.filter(Perfume.age_group == "adult")
     
-    if request.gender != "other":
+    if gender != "other":
         query = query.filter(
-            (Perfume.gender_target == request.gender) | 
+            (Perfume.gender_target == gender) | 
             (Perfume.gender_target == "unisex")
         )
     
-    if request.season_preference:
+    if season_preference:
         query = query.filter(
-            (Perfume.season_suitability == request.season_preference) |
+            (Perfume.season_suitability == season_preference) |
             (Perfume.season_suitability == "all")
         )
     
-    if request.personality:
-        query = query.filter(Perfume.personality_match == request.personality)
+    if personality:
+        query = query.filter(Perfume.personality_match == personality)
     
     if request.price_preference:
         query = query.filter(Perfume.price_range == request.price_preference)
@@ -66,22 +72,22 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
     # 추천 이유 생성
     reason = recommendation_model.get_recommendation_reason(
         predicted_category=predicted_category,
-        age=request.age,
-        gender=request.gender,
-        personality=request.personality,
-        season=request.season_preference
+        age=age,
+        gender=gender,
+        personality=personality,
+        season=season_preference
     )
     
     # 매칭 요소들
     match_factors = []
-    if selected_perfume.personality_match == request.personality:
+    if selected_perfume.personality_match == personality:
         match_factors.append("성격 매칭")
-    if selected_perfume.season_suitability == request.season_preference:
+    if selected_perfume.season_suitability == season_preference:
         match_factors.append("계절 매칭")
     if selected_perfume.age_group in ["young", "adult", "mature"]:
-        if (request.age < 30 and selected_perfume.age_group == "young") or \
-           (30 <= request.age <= 50 and selected_perfume.age_group == "adult") or \
-           (request.age > 50 and selected_perfume.age_group == "mature"):
+        if (age < 30 and selected_perfume.age_group == "young") or \
+           (30 <= age <= 50 and selected_perfume.age_group == "adult") or \
+           (age > 50 and selected_perfume.age_group == "mature"):
             match_factors.append("연령대 매칭")
     
     return RecommendationResponse(

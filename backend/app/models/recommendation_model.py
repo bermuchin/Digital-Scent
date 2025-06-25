@@ -192,6 +192,14 @@ class PerfumeRecommendationModel:
         if not self.is_trained:
             self.train()
         
+        # 입력 데이터 검증 및 기본값 설정
+        if not gender or gender.strip() == "":
+            gender = "other"
+        if not personality or personality.strip() == "":
+            personality = "balanced"
+        if not season or season.strip() == "":
+            season = "spring"
+        
         # 입력 데이터 준비
         input_data = pd.DataFrame([{
             'age': age,
@@ -203,6 +211,8 @@ class PerfumeRecommendationModel:
         # 범주형 변수 인코딩
         for column in input_data.select_dtypes(include=['object']).columns:
             if column in self.label_encoders:
+                # 빈 값이나 None 값을 기본값으로 대체
+                input_data[column] = input_data[column].fillna('other' if column == 'gender' else 'balanced' if column == 'personality' else 'spring')
                 input_data[column] = self.label_encoders[column].transform(input_data[column])
         
         # 스케일링
