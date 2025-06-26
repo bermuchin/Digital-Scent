@@ -90,7 +90,7 @@ npm start
 - **user_preferences**: 사용자 선호도 (카테고리, 가격대, 강도 등)
 - **recommendations**: 추천 기록 (추천 결과, 피드백)
 
-## 🤖 AI 모델
+## AI 모델
 
 ### 추천 알고리즘
 1. **특성 분석**: 나이, 성별, 성격, 계절 선호도
@@ -98,11 +98,7 @@ npm start
 3. **필터링**: 예측된 카테고리 내에서 추가 조건 적용
 4. **랭킹**: 매칭 점수 기반 최종 추천
 
-### 모델 성능
-- **정확도**: 약 85% (샘플 데이터 기준)
-- **추천 정확도**: 95% (사용자 피드백 기준)
-
-## 📱 API 엔드포인트
+## API 엔드포인트
 
 ### 사용자 관리
 - `POST /api/users/` - 사용자 등록
@@ -130,20 +126,6 @@ npm start
 4. **오리엔탈 (Oriental)**: 바닐라, 스파이스, 앰버 등 동양적 향기
 5. **시트러스 (Citrus)**: 레몬, 라임, 오렌지 등 과일향기
 
-## 개발 환경 설정
-
-### 환경 변수
-```bash
-# .env 파일 생성
-DATABASE_URL=sqlite:///./perfume_recommendation.db
-API_BASE_URL=http://localhost:8000
-```
-
-### 개발 도구
-- **Postman/Insomnia**: API 테스트
-- **SQLite Browser**: 데이터베이스 관리
-- **VS Code**: 코드 편집기
-
 ## 배포
 
 ### 백엔드 배포 (예: Heroku)
@@ -161,18 +143,3 @@ npm run build
 # Vercel에 배포
 ```
 
-## 기여하기
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 문의
-
-프로젝트에 대한 문의사항이 있으시면 이슈를 생성해주세요.
-
----
-
-**향수 추천 플랫폼** - 당신만을 위한 완벽한 향수를 찾아드립니다!
