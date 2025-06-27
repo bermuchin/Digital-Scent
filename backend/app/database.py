@@ -90,7 +90,7 @@ class Recommendation(Base):
     __tablename__ = "recommendations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 익명 사용자 허용
     perfume_id = Column(Integer, ForeignKey("perfumes.id"))
     confidence_score = Column(Float)
     reason = Column(Text)

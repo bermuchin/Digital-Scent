@@ -95,6 +95,7 @@ class RecommendationRequest(BaseModel):
 
 # 추천 응답 스키마
 class RecommendationResponse(BaseModel):
+    id: int
     perfume: PerfumeDetail
     confidence_score: float
     reason: str

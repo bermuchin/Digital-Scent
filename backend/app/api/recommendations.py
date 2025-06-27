@@ -90,7 +90,19 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
            (age > 50 and selected_perfume.age_group == "mature"):
             match_factors.append("연령대 매칭")
     
+    # 추천 기록을 데이터베이스에 저장 (익명 사용자용)
+    db_recommendation = Recommendation(
+        user_id=None,  # 익명 사용자
+        perfume_id=selected_perfume.id,
+        confidence_score=confidence,
+        reason=reason
+    )
+    db.add(db_recommendation)
+    db.commit()
+    db.refresh(db_recommendation)
+    
     return RecommendationResponse(
+        id=db_recommendation.id,  # 추천 ID 추가
         perfume=selected_perfume,
         confidence_score=confidence,
         reason=reason,

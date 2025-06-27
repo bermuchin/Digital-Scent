@@ -68,6 +68,7 @@ const Recommendation = () => {
       alert('피드백이 저장되었습니다!');
     } catch (error) {
       console.error('피드백 제출 실패:', error);
+      alert('피드백 제출에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
