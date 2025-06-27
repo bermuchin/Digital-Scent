@@ -8,8 +8,14 @@ import random
 
 router = APIRouter()
 
-# ML 모델 인스턴스 생성
+# ML 모델 인스턴스 생성 및 로드
 recommendation_model = PerfumeRecommendationModel()
+try:
+    recommendation_model.load_model()
+    print("기존 모델을 성공적으로 로드했습니다.")
+except Exception as e:
+    print(f"모델 로드 실패, 새로 훈련합니다: {e}")
+    recommendation_model.train()
 
 @router.post("/", response_model=RecommendationResponse)
 def get_recommendation(request: RecommendationRequest, db: Session = Depends(get_db)):
@@ -232,4 +238,22 @@ def get_popular_perfumes(db: Session = Depends(get_db)):
                 "like_count": rec.like_count
             })
     
-    return popular_perfumes 
+    return popular_perfumes
+
+@router.post("/retrain-model")
+def retrain_model_with_feedback(db: Session = Depends(get_db)):
+    """피드백 데이터를 포함하여 모델을 재훈련합니다."""
+    try:
+        recommendation_model.retrain_with_feedback(db)
+        return {"message": "모델 재훈련이 완료되었습니다"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"모델 재훈련 실패: {str(e)}")
+
+@router.get("/model-status")
+def get_model_status():
+    """모델 상태 정보를 조회합니다."""
+    return {
+        "is_trained": recommendation_model.is_trained,
+        "last_retrain_date": recommendation_model.last_retrain_date,
+        "should_retrain": recommendation_model.should_retrain()
+    } 

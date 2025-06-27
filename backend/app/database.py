@@ -5,7 +5,8 @@ from datetime import datetime
 import os
 
 # 데이터베이스 URL (개발용 SQLite 사용)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./perfume_recommendation.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'perfume_recommendation.db')}")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

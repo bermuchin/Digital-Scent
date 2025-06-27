@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, classification_report
 import joblib
 import os
 from typing import List, Dict, Tuple
+from datetime import datetime, timedelta
 
 class PerfumeRecommendationModel:
     def __init__(self):
@@ -14,7 +15,106 @@ class PerfumeRecommendationModel:
         self.label_encoders = {}
         self.scaler = StandardScaler()
         self.is_trained = False
+        self.last_retrain_date = None
         
+        # 모델 파일 경로 설정 (루트 디렉토리 기준)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # backend/app/models -> backend/app -> backend -> 루트
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+        self.model_filepath = os.path.join(project_root, "ml_models", "perfume_recommendation_model.pkl")
+        
+    def get_feedback_weight(self, is_liked: bool, days_old: int) -> float:
+        """피드백의 가중치를 계산합니다."""
+        base_weight = 2.0 if is_liked else 1.0  # 좋아요는 더 높은 가중치
+        
+        # 시간에 따른 가중치 감소 (최신 피드백이 더 중요)
+        time_decay = max(0.1, 1.0 - (days_old / 365))  # 1년 후 10%까지 감소
+        
+        return base_weight * time_decay
+    
+    def prepare_feedback_data(self, db_session) -> pd.DataFrame:
+        """실제 사용자 피드백 데이터를 준비합니다."""
+        from app.database import Recommendation, Perfume, User
+        
+        # 피드백이 있는 추천 기록 조회
+        feedback_records = db_session.query(Recommendation).filter(
+            Recommendation.is_liked.isnot(None)
+        ).all()
+        
+        feedback_data = []
+        
+        for record in feedback_records:
+            # 향수 정보 조회
+            perfume = db_session.query(Perfume).filter(Perfume.id == record.perfume_id).first()
+            if not perfume:
+                continue
+            
+            # 사용자 정보 조회 (익명 사용자는 기본값 사용)
+            if record.user_id:
+                user = db_session.query(User).filter(User.id == record.user_id).first()
+                if user:
+                    age = user.age
+                    gender = user.gender
+                    personality = user.personality
+                    season_preference = user.season_preference
+                else:
+                    continue
+            else:
+                # 익명 사용자는 기본값 사용 (실제로는 더 정교한 방법 필요)
+                age = 30
+                gender = "other"
+                personality = "balanced"
+                season_preference = "spring"
+            
+            # 피드백 가중치 계산
+            days_old = (datetime.utcnow() - record.created_at).days
+            weight = self.get_feedback_weight(record.is_liked, days_old)
+            
+            # 좋아요인 경우만 훈련 데이터에 포함 (싫어요는 다른 카테고리 학습에 활용)
+            if record.is_liked:
+                feedback_data.append({
+                    'age': age,
+                    'gender': gender,
+                    'personality': personality,
+                    'season_preference': season_preference,
+                    'perfume_category': perfume.category,
+                    'weight': weight,
+                    'source': 'feedback'
+                })
+        
+        return pd.DataFrame(feedback_data)
+    
+    def prepare_enhanced_training_data(self, db_session=None) -> Tuple[pd.DataFrame, pd.Series, np.ndarray]:
+        """향상된 훈련 데이터를 준비합니다 (샘플 데이터 + 피드백 데이터)."""
+        # 기본 샘플 데이터
+        sample_df = self.prepare_sample_data()
+        sample_df['weight'] = 1.0  # 샘플 데이터는 기본 가중치
+        sample_df['source'] = 'sample'
+        
+        # 피드백 데이터 (가능한 경우)
+        feedback_df = pd.DataFrame()
+        if db_session:
+            try:
+                feedback_df = self.prepare_feedback_data(db_session)
+            except Exception as e:
+                print(f"피드백 데이터 로드 실패: {e}")
+        
+        # 데이터 결합
+        if not feedback_df.empty:
+            combined_df = pd.concat([sample_df, feedback_df], ignore_index=True)
+            print(f"훈련 데이터: 샘플 {len(sample_df)}개, 피드백 {len(feedback_df)}개")
+        else:
+            combined_df = sample_df
+            print(f"훈련 데이터: 샘플 {len(sample_df)}개")
+        
+        # 특성과 타겟 분리
+        features = ['age', 'gender', 'personality', 'season_preference']
+        X = combined_df[features]
+        y = combined_df['perfume_category']
+        weights = combined_df['weight'].values
+        
+        return X, y, weights
+    
     def prepare_sample_data(self) -> pd.DataFrame:
         """샘플 향수 데이터를 생성합니다."""
         np.random.seed(42)
@@ -155,9 +255,14 @@ class PerfumeRecommendationModel:
         
         return X, y
     
-    def train(self):
+    def train(self, db_session=None, force_retrain=False):
         """모델을 훈련합니다."""
-        X, y = self.prepare_training_data()
+        # 재훈련 필요성 확인
+        if not force_retrain and self.should_retrain():
+            print("재훈련이 필요하지 않습니다.")
+            return
+        
+        X, y, weights = self.prepare_enhanced_training_data(db_session)
         
         # 범주형 변수 인코딩
         for column in X.select_dtypes(include=['object']).columns:
@@ -168,13 +273,13 @@ class PerfumeRecommendationModel:
         # 수치형 변수 스케일링
         X_scaled = self.scaler.fit_transform(X)
         
-        # 훈련/테스트 분할
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y, test_size=0.2, random_state=42
+        # 훈련/테스트 분할 (가중치 고려)
+        X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
+            X_scaled, y, weights, test_size=0.2, random_state=42, stratify=y
         )
         
-        # 모델 훈련
-        self.model.fit(X_train, y_train)
+        # 가중치 기반 모델 훈련
+        self.model.fit(X_train, y_train, sample_weight=w_train)
         
         # 모델 평가
         y_pred = self.model.predict(X_test)
@@ -182,9 +287,28 @@ class PerfumeRecommendationModel:
         print(f"Model accuracy: {accuracy:.3f}")
         
         self.is_trained = True
+        self.last_retrain_date = datetime.utcnow()
         
         # 모델 저장
         self.save_model()
+    
+    def should_retrain(self) -> bool:
+        """재훈련이 필요한지 확인합니다."""
+        if not self.is_trained:
+            return True
+        
+        if not self.last_retrain_date:
+            return True
+        
+        # 마지막 훈련 후 7일이 지났으면 재훈련
+        days_since_last_train = (datetime.utcnow() - self.last_retrain_date).days
+        return days_since_last_train >= 7
+    
+    def retrain_with_feedback(self, db_session):
+        """피드백 데이터를 포함하여 모델을 재훈련합니다."""
+        print("피드백 데이터를 포함한 모델 재훈련을 시작합니다...")
+        self.train(db_session, force_retrain=True)
+        print("모델 재훈련이 완료되었습니다.")
     
     def predict_category(self, age: int, gender: str, personality: str, 
                         season: str) -> Tuple[str, float]:
@@ -260,29 +384,31 @@ class PerfumeRecommendationModel:
         
         return " ".join(reasons)
     
-    def save_model(self, filepath: str = "ml_models/perfume_recommendation_model.pkl"):
+    def save_model(self):
         """모델을 저장합니다."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        os.makedirs(os.path.dirname(self.model_filepath), exist_ok=True)
         
         model_data = {
             'model': self.model,
             'label_encoders': self.label_encoders,
             'scaler': self.scaler,
-            'is_trained': self.is_trained
+            'is_trained': self.is_trained,
+            'last_retrain_date': self.last_retrain_date
         }
         
-        joblib.dump(model_data, filepath)
-        print(f"Model saved to {filepath}")
+        joblib.dump(model_data, self.model_filepath)
+        print(f"Model saved to {self.model_filepath}")
     
-    def load_model(self, filepath: str = "ml_models/perfume_recommendation_model.pkl"):
+    def load_model(self):
         """모델을 로드합니다."""
-        if os.path.exists(filepath):
-            model_data = joblib.load(filepath)
+        if os.path.exists(self.model_filepath):
+            model_data = joblib.load(self.model_filepath)
             self.model = model_data['model']
             self.label_encoders = model_data['label_encoders']
             self.scaler = model_data['scaler']
             self.is_trained = model_data['is_trained']
-            print(f"Model loaded from {filepath}")
+            self.last_retrain_date = model_data.get('last_retrain_date', None)
+            print(f"Model loaded from {self.model_filepath}")
         else:
             print("Model file not found. Training new model...")
             self.train() 
