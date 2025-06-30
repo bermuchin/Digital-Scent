@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import joblib
 import os
 from typing import List, Dict, Tuple
@@ -285,6 +285,15 @@ class PerfumeRecommendationModel:
         y_pred = self.model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Model accuracy: {accuracy:.3f}")
+
+        
+        # Confusion Matrix
+        print("Confusion Matrix:")
+        print(confusion_matrix(y_test, y_pred))
+
+        # Classification Report
+        print("Classification Report:")
+        print(classification_report(y_test, y_pred))
         
         self.is_trained = True
         self.last_retrain_date = datetime.utcnow()
