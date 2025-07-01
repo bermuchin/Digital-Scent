@@ -286,7 +286,6 @@ class PerfumeRecommendationModel:
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Model accuracy: {accuracy:.3f}")
 
-        
         # Confusion Matrix
         print("Confusion Matrix:")
         print(confusion_matrix(y_test, y_pred))

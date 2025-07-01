@@ -21,23 +21,6 @@ def get_db():
     finally:
         db.close()
 
-# 사용자 모델
-class User(Base):
-    __tablename__ = "users"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True)
-    email = Column(String(100), unique=True, index=True)
-    age = Column(Integer)
-    gender = Column(String(10))  # "male", "female", "other"
-    personality = Column(String(50))  # "introvert", "extrovert", "balanced"
-    season_preference = Column(String(20))  # "spring", "summer", "autumn", "winter"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # 관계
-    preferences = relationship("UserPreference", back_populates="user")
-    recommendations = relationship("Recommendation", back_populates="user")
-
 # 향수 모델
 class Perfume(Base):
     __tablename__ = "perfumes"
@@ -72,31 +55,13 @@ class PerfumeRecipe(Base):
     # 관계
     perfume = relationship("Perfume", back_populates="recipes")
 
-# 사용자 선호도 모델
-class UserPreference(Base):
-    __tablename__ = "user_preferences"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    category_preference = Column(String(50))
-    price_preference = Column(String(20))
-    intensity_preference = Column(String(20))  # "light", "medium", "strong"
-    longevity_preference = Column(String(20))  # "short", "medium", "long"
-    
-    # 관계
-    user = relationship("User", back_populates="preferences")
-
-# 추천 기록 모델
+# 추천 기록 모델 (익명 사용자만)
 class Recommendation(Base):
     __tablename__ = "recommendations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 익명 사용자 허용
     perfume_id = Column(Integer, ForeignKey("perfumes.id"))
     confidence_score = Column(Float)
     reason = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    is_liked = Column(Boolean, nullable=True)  # 사용자 피드백
-    
-    # 관계
-    user = relationship("User", back_populates="recommendations") 
+    is_liked = Column(Boolean, nullable=True)  # 사용자 피드백 

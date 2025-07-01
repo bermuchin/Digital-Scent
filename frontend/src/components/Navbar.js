@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Flower, Search, User, Home, Sparkles } from 'lucide-react';
+import { Flower, Search, Home, Sparkles } from 'lucide-react';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,7 +10,6 @@ const Navbar = () => {
     { path: '/', label: '홈', icon: Home },
     { path: '/recommendation', label: '향수 추천', icon: Sparkles },
     { path: '/perfumes', label: '향수 목록', icon: Flower },
-    { path: '/profile', label: '프로필', icon: User },
   ];
 
   const isActive = (path) => location.pathname === path;

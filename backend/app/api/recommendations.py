@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db, Perfume, Recommendation, User
+from app.database import get_db, Perfume, Recommendation
 from app.schemas import RecommendationRequest, RecommendationResponse, RecommendationFeedback
 from app.models.recommendation_model import PerfumeRecommendationModel
 import random
@@ -98,7 +98,6 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
     
     # 추천 기록을 데이터베이스에 저장 (익명 사용자용)
     db_recommendation = Recommendation(
-        user_id=None,  # 익명 사용자
         perfume_id=selected_perfume.id,
         confidence_score=confidence,
         reason=reason
@@ -114,66 +113,6 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
         reason=reason,
         match_factors=match_factors
     )
-
-@router.post("/user/{user_id}", response_model=RecommendationResponse)
-def get_user_recommendation(user_id: int, db: Session = Depends(get_db)):
-    """등록된 사용자에 대한 향수를 추천합니다."""
-    # 사용자 정보 조회
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
-    
-    # 추천 요청 생성
-    request = RecommendationRequest(
-        age=user.age,
-        gender=user.gender,
-        personality=user.personality,
-        season_preference=user.season_preference
-    )
-    
-    # 추천 실행
-    recommendation = get_recommendation(request, db)
-    
-    # 추천 기록 저장
-    db_recommendation = Recommendation(
-        user_id=user_id,
-        perfume_id=recommendation.perfume.id,
-        confidence_score=recommendation.confidence_score,
-        reason=recommendation.reason
-    )
-    db.add(db_recommendation)
-    db.commit()
-    
-    return recommendation
-
-@router.get("/user/{user_id}/history", response_model=List[dict])
-def get_user_recommendation_history(user_id: int, db: Session = Depends(get_db)):
-    """사용자의 추천 기록을 조회합니다."""
-    # 사용자 존재 확인
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
-    
-    # 추천 기록 조회
-    recommendations = db.query(Recommendation).filter(
-        Recommendation.user_id == user_id
-    ).order_by(Recommendation.created_at.desc()).all()
-    
-    history = []
-    for rec in recommendations:
-        perfume = db.query(Perfume).filter(Perfume.id == rec.perfume_id).first()
-        if perfume:
-            history.append({
-                "id": rec.id,
-                "perfume_name": perfume.name,
-                "perfume_brand": perfume.brand,
-                "confidence_score": rec.confidence_score,
-                "reason": rec.reason,
-                "created_at": rec.created_at,
-                "is_liked": rec.is_liked
-            })
-    
-    return history
 
 @router.post("/feedback/{recommendation_id}")
 def submit_recommendation_feedback(
@@ -198,62 +137,30 @@ def submit_recommendation_feedback(
 
 @router.get("/categories/{category}", response_model=List[dict])
 def get_perfumes_by_category(category: str, db: Session = Depends(get_db)):
-    """특정 카테고리의 향수들을 조회합니다."""
     perfumes = db.query(Perfume).filter(Perfume.category == category).all()
-    
-    return [
-        {
+    result = []
+    for perfume in perfumes:
+        result.append({
             "id": perfume.id,
             "name": perfume.name,
             "brand": perfume.brand,
-            "description": perfume.description,
-            "price_range": perfume.price_range
-        }
-        for perfume in perfumes
-    ]
+            "category": perfume.category,
+            "description": perfume.description
+        })
+    return result
 
 @router.get("/popular", response_model=List[dict])
 def get_popular_perfumes(db: Session = Depends(get_db)):
-    """인기 향수들을 조회합니다 (좋아요가 많은 순)."""
-    # 좋아요가 많은 추천들을 기반으로 인기 향수 계산
-    popular_recommendations = db.query(
-        Recommendation.perfume_id,
-        db.func.count(Recommendation.id).label('recommendation_count'),
-        db.func.sum(db.case((Recommendation.is_liked == True, 1), else_=0)).label('like_count')
-    ).group_by(Recommendation.perfume_id).order_by(
-        db.func.sum(db.case((Recommendation.is_liked == True, 1), else_=0)).desc()
-    ).limit(10).all()
-    
-    popular_perfumes = []
-    for rec in popular_recommendations:
-        perfume = db.query(Perfume).filter(Perfume.id == rec.perfume_id).first()
-        if perfume:
-            popular_perfumes.append({
-                "id": perfume.id,
-                "name": perfume.name,
-                "brand": perfume.brand,
-                "category": perfume.category,
-                "description": perfume.description,
-                "recommendation_count": rec.recommendation_count,
-                "like_count": rec.like_count
-            })
-    
-    return popular_perfumes
+    perfumes = db.query(Perfume).all()
+    # 예시: 단순히 랜덤 5개 반환
+    return random.sample(perfumes, min(5, len(perfumes)))
 
 @router.post("/retrain-model")
 def retrain_model_with_feedback(db: Session = Depends(get_db)):
-    """피드백 데이터를 포함하여 모델을 재훈련합니다."""
-    try:
-        recommendation_model.retrain_with_feedback(db)
-        return {"message": "모델 재훈련이 완료되었습니다"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"모델 재훈련 실패: {str(e)}")
+    recommendation_model.retrain_with_feedback(db)
+    return {"message": "모델이 피드백을 반영하여 재학습되었습니다."}
 
 @router.get("/model-status")
 def get_model_status():
-    """모델 상태 정보를 조회합니다."""
-    return {
-        "is_trained": recommendation_model.is_trained,
-        "last_retrain_date": recommendation_model.last_retrain_date,
-        "should_retrain": recommendation_model.should_retrain()
-    } 
+    status = recommendation_model.should_retrain()
+    return {"should_retrain": status} 
