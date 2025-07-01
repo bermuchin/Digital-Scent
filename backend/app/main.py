@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import users, perfumes, recommendations
+from app.api import perfumes, recommendations
 from app.database import engine, Base
 
 # 데이터베이스 테이블 생성
@@ -31,7 +31,6 @@ app.add_middleware(
 )
 
 # API 라우터 등록
-app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(perfumes.router, prefix="/api/perfumes", tags=["perfumes"])
 app.include_router(recommendations.router, prefix="/api/recommendations", tags=["recommendations"])
 
