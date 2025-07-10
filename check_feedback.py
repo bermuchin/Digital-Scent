@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
 
-from backend.app.database import SessionLocal, Recommendation, Perfume, User
+from backend.app.database import SessionLocal, Recommendation, Perfume
 from datetime import datetime, timedelta
 import pandas as pd
 
@@ -70,7 +70,7 @@ def check_feedback_data():
         
         for i, record in enumerate(feedback_records, 1):
             perfume = db.query(Perfume).filter(Perfume.id == record.perfume_id).first()
-            user_info = "익명" if record.user_id is None else f"사용자 {record.user_id}"
+            user_info = "익명"
             
             print(f"{i}. {perfume.name if perfume else 'Unknown'} ({perfume.brand if perfume else 'Unknown'})")
             print(f"   사용자: {user_info}")

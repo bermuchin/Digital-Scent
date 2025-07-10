@@ -34,7 +34,7 @@ class PerfumeRecommendationModel:
     
     def prepare_feedback_data(self, db_session) -> pd.DataFrame:
         """실제 사용자 피드백 데이터를 준비합니다."""
-        from app.database import Recommendation, Perfume, User
+        from app.database import Recommendation, Perfume
         
         # 피드백이 있는 추천 기록 조회
         feedback_records = db_session.query(Recommendation).filter(
@@ -49,22 +49,11 @@ class PerfumeRecommendationModel:
             if not perfume:
                 continue
             
-            # 사용자 정보 조회 (익명 사용자는 기본값 사용)
-            if record.user_id:
-                user = db_session.query(User).filter(User.id == record.user_id).first()
-                if user:
-                    age = user.age
-                    gender = user.gender
-                    personality = user.personality
-                    season_preference = user.season_preference
-                else:
-                    continue
-            else:
-                # 익명 사용자는 기본값 사용 (실제로는 더 정교한 방법 필요)
-                age = 30
-                gender = "other"
-                personality = "balanced"
-                season_preference = "spring"
+            # 익명 사용자는 기본값 사용
+            age = 30
+            gender = "other"
+            personality = "balanced"
+            season_preference = "spring"
             
             # 피드백 가중치 계산
             days_old = (datetime.utcnow() - record.created_at).days
