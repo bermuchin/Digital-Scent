@@ -1,46 +1,40 @@
 #!/usr/bin/env python3
 """
-엑셀 데이터의 향수 카테고리 라벨 분석
+DB와 엑셀 데이터의 향수 카테고리 분포 분석 (엑셀 라벨도 모델의 정규화 함수로 집계)
 """
 
+from collections import Counter
+from backend.app.database import Perfume, get_db
+from sqlalchemy.orm import Session
 import pandas as pd
+from backend.app.models.recommendation_model import PerfumeRecommendationModel
 
-category_mapping = {
-    '시트러스': 'citrus',
-    '플로럴': 'floral',
-    '우디': 'woody',
-    '머스크': 'musk',
-    '아쿠아틱': 'aquatic',
-    '그린': 'green',
-    '아로마틱': 'aromatic',
-    '오리엔탈': 'oriental',
-    '푸제르': 'fougere',
-    '시프레': 'chypre',
-    '앰버': 'amber',
-    '스파이시': 'spicy',
-    '파우더리': 'powdery',
-    '프루티': 'fruity',
-    '구르망': 'gourmand',
-    '캐쥬얼': 'casual',
-    '코지': 'cozy',
-    '라이트 플로럴': 'light_floral',
-    '화이트 플로럴': 'white_floral'
-}
+# 1. DB 기준 분포
+if __name__ == "__main__":
+    db: Session = next(get_db())
+    categories = [p.category for p in db.query(Perfume).all()]
+    counter = Counter(categories)
+    total = sum(counter.values())
+    print("[DB] 향수 계열별 분포 (개수/비율):")
+    for cat, count in counter.most_common():
+        print(f"{cat}: {count}개 ({count/total:.2%})")
+    print(f"총 향수 개수: {total}\n")
 
-def simplify(cat):
-    mapped = [category_mapping[k] for k in category_mapping if k in str(cat)]
-    return mapped if mapped else ['other']
-
-df = pd.read_excel('excel_data/perfume.preferred_cleansed.xlsx')
-df['perfume_category'] = df['preferred_Note'].apply(simplify)
-cats = set()
-for x in df['perfume_category']:
-    cats.update(x)
-print('실제 라벨 목록:', sorted(cats))
-print('실제 라벨 개수:', len(cats))
-
-# 매핑되지 않은 값(즉, 'other'로 분류된 원본 preferred_Note) 출력
-unmapped = df[df['perfume_category'].apply(lambda x: 'other' in x)]['preferred_Note'].unique()
-print('\n매핑되지 않은 preferred_Note 값:')
-for val in unmapped:
-    print('-', val) 
+    # 2. 엑셀 기준 분포 (정규화 적용)
+    try:
+        model = PerfumeRecommendationModel()
+        df = pd.read_excel('excel_data/perfume.preferred_cleansed.xlsx')
+        all_cats = []
+        for cats in df['preferred_Note'].dropna():
+            all_cats.extend(model.simplify_perfume_category_list(cats))
+        excel_counter = Counter(all_cats)
+        excel_total = sum(excel_counter.values())
+        unique_labels = set(all_cats)
+        print("[엑셀] (정규화) 향수 계열별 분포 (개수/비율):")
+        for cat, count in excel_counter.most_common():
+            print(f"{cat}: {count}개 ({count/excel_total:.2%})")
+        print(f"총 라벨 등장 횟수: {excel_total}")
+        print(f"라벨 종류(유니크): {sorted(unique_labels)}")
+        print(f"라벨 종류 개수: {len(unique_labels)}")
+    except Exception as e:
+        print(f"엑셀 데이터 분석 실패: {e}") 

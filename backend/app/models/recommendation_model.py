@@ -9,6 +9,7 @@ import joblib
 import os
 from typing import List, Dict, Tuple
 from datetime import datetime, timedelta
+import re
 
 class PerfumeRecommendationModel:
     def __init__(self):
@@ -18,6 +19,7 @@ class PerfumeRecommendationModel:
         self.mlb = MultiLabelBinarizer()  # 멀티라벨 바이너리 인코더
         self.is_trained = False
         self.last_retrain_date = None
+        self.onehot_columns = None  # One-hot 인코딩 컬럼 순서 저장
         
         # 모델 파일 경로 설정 (루트 디렉토리 기준)
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -176,92 +178,89 @@ class PerfumeRecommendationModel:
             return None
     
     def simplify_perfume_category_list(self, category_text):
-        """복합 향수 카테고리를 리스트로 변환하고, 각 항목을 영어로 매핑합니다."""
+        """
+        복합 향수 카테고리를 리스트로 변환하고, 각 항목을 19개 표준 카테고리(영문)로 강력하게 매핑합니다.
+        괄호, 설명, 띄어쓰기, 오타, 유사 표현 등도 모두 표준 카테고리로 매핑. 매핑 실패시 'other'.
+        """
         if pd.isna(category_text):
             return []
-        
-        category_mapping = {
-            '시트러스': 'citrus',
-            '플로럴': 'floral', 
-            '우디': 'woody',
-            '머스크': 'musk',
-            '아쿠아틱': 'aquatic',
-            '그린': 'green',
-            '아로마틱': 'aromatic',
-            '오리엔탈': 'oriental',
-            '푸제르': 'fougere',
-            '시프레': 'chypre',
-            '앰버': 'amber',
-            '스파이시': 'spicy',
-            '파우더리': 'powdery',
-            '프루티': 'fruity',
-            '구르망': 'gourmand',
-            '캐쥬얼': 'casual',
-            '코지': 'cozy',
-            '라이트 플로럴': 'light_floral',
-            '화이트 플로럴': 'white_floral',
-            # 실제 엑셀 데이터에 맞는 정확한 매핑
-            '나무': 'woody',
-            '숲 향기': 'woody',
-            '레몬': 'citrus',
-            '자몽': 'citrus',
-            '상큼한': 'citrus',
-            '꽃': 'floral',
-            '향기': 'floral',
-            '달콤한': 'gourmand',
-            '따뜻한': 'amber',
-            '신비로운': 'oriental',
-            '상쾌한': 'green',
-            '자연스러운': 'green',
-            '강렬한': 'spicy',
-            '부드러운': 'powdery',
-            '생기있는': 'fruity',
-            # 엑셀 데이터의 정확한 표현들
-            '장미': 'floral',
-            '백합': 'floral',
-            '포근하고 따뜻한': 'musk',
-            '바다나 비누 같은 깨끗한': 'aquatic',
-            '풀': 'green',
-            '허브': 'green',
-            '자연': 'green',
-            '파우더처럼 부드럽고 가벼운': 'powdery',
-            '라벤더': 'aromatic',
-            '로즈마리': 'aromatic',
-            '바질': 'aromatic',
-            '오크모스': 'chypre',
-            '베르가못': 'chypre',
-            '패츌리': 'chypre',
-            '린넨': 'casual',
-            '면': 'casual',
-            '비누': 'casual',
-            '일상적이고 편안한': 'casual',
-            '커피': 'cozy',
-            '우드': 'cozy',
-            '바닐라': 'gourmand',
-            '초콜릿': 'gourmand',
-            '포근하고 푹신한': 'cozy'
+
+        # 표준 카테고리(영문)
+        std_categories = [
+            'citrus', 'floral', 'woody', 'oriental', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity',
+            'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light floral', 'white floral', 'casual', 'cozy'
+        ]
+        # 매핑표: 키워드/한글/설명/유사표현 → 표준 카테고리
+        mapping = {
+            # citrus
+            '시트러스': 'citrus', '레몬': 'citrus', '자몽': 'citrus', '상큼': 'citrus', 'citrus': 'citrus',
+            # floral
+            '플로럴': 'floral', '꽃': 'floral', '장미': 'floral', '백합': 'floral', 'rose': 'floral', 'lily': 'floral', 'floral': 'floral',
+            # woody
+            '우디': 'woody', '나무': 'woody', '숲': 'woody', 'cedar': 'woody', 'wood': 'woody', 'woody': 'woody',
+            # oriental
+            '오리엔탈': 'oriental', '신비': 'oriental', 'oriental': 'oriental',
+            # musk
+            '머스크': 'musk', '포근': 'musk', '따뜻': 'musk', 'musk': 'musk',
+            # aquatic
+            '아쿠아틱': 'aquatic', '바다': 'aquatic', '비누': 'aquatic', 'aquatic': 'aquatic',
+            # green
+            '그린': 'green', '풀': 'green', '허브': 'green', '자연': 'green', 'green': 'green',
+            # gourmand
+            '구르망': 'gourmand', '바닐라': 'gourmand', '초콜릿': 'gourmand', '달콤': 'gourmand', 'gourmand': 'gourmand',
+            # powdery
+            '파우더리': 'powdery', '파우더': 'powdery', '부드럽': 'powdery', 'powdery': 'powdery',
+            # fruity
+            '프루티': 'fruity', '과일': 'fruity', '사과': 'fruity', '복숭아': 'fruity', '베리': 'fruity', 'fruity': 'fruity',
+            # aromatic
+            '아로마틱': 'aromatic', '라벤더': 'aromatic', '로즈마리': 'aromatic', '바질': 'aromatic', 'aromatic': 'aromatic',
+            # chypre
+            '시프레': 'chypre', '오크모스': 'chypre', '베르가못': 'chypre', '패츌리': 'chypre', 'chypre': 'chypre',
+            # fougere
+            '푸제르': 'fougere', 'ferny': 'fougere', 'fougere': 'fougere',
+            # amber
+            '앰버': 'amber', 'amber': 'amber',
+            # spicy
+            '스파이시': 'spicy', '계피': 'spicy', '정향': 'spicy', '후추': 'spicy', 'spicy': 'spicy',
+            # light floral
+            '라이트 플로럴': 'light floral', '작은 꽃': 'light floral', '미모사': 'light floral', '은방울꽃': 'light floral', 'light floral': 'light floral',
+            # white floral
+            '화이트 플로럴': 'white floral', '튜베로즈': 'white floral', '가드니아': 'white floral', '오렌지 블라썸': 'white floral', 'white floral': 'white floral',
+            # casual
+            '캐쥬얼': 'casual', '린넨': 'casual', '면': 'casual', '일상': 'casual', 'casual': 'casual',
+            # cozy
+            '코지': 'cozy', '커피': 'cozy', '우드': 'cozy', '포근하고 푹신': 'cozy', 'cozy': 'cozy',
         }
-        
-        # 카테고리 텍스트를 문자열로 변환
-        category_text = str(category_text)
-        
-        # 쉼표로 분리된 카테고리들을 처리
-        categories = [cat.strip() for cat in category_text.split(',')]
-        result = []
-        
-        for cat in categories:
-            matched = False
-            for korean, english in category_mapping.items():
-                if korean in cat:
-                    result.append(english)
-                    matched = True
+        # 괄호/설명/공백/특수문자 제거 및 소문자화
+        def clean_label(label):
+            label = str(label)
+            label = re.sub(r'\([^)]*\)', '', label)  # 괄호 및 괄호 안 설명 제거
+            label = re.sub(r'[^\w가-힣 ]', '', label)  # 특수문자 제거
+            label = label.strip().lower()
+            return label
+
+        # 쉼표/슬래시/공백 등으로 분리
+        raw_cats = re.split(r'[,/]|\n|\t', str(category_text))
+        result = set()
+        for raw in raw_cats:
+            cleaned = clean_label(raw)
+            found = None
+            for key, std in mapping.items():
+                if key in cleaned:
+                    found = std
                     break
-            
-            # 매칭되지 않은 경우 'other' 추가
-            if not matched:
-                result.append('other')
-        
-        return list(set(result))  # 중복 제거
+            if found:
+                result.add(found)
+            else:
+                # 표준 카테고리명 직접 포함시 그대로 사용
+                for std in std_categories:
+                    if std in cleaned:
+                        result.add(std)
+                        break
+                else:
+                    if cleaned:
+                        result.add('other')
+        return list(result)
     
     def _calculate_match_score(self, perfume: Dict, age: int, gender: str, 
                               personality: str, season: str) -> float:
@@ -294,6 +293,66 @@ class PerfumeRecommendationModel:
         
         return min(score, 1.0)
     
+    def preprocess_input(self, input_dict):
+        """
+        입력값의 라벨을 일관성 있게 정규화(한글/영문/표기 변형/unknown 처리)
+        """
+        # gender
+        gender_map = {'여': 'F', '여성': 'F', '남': 'M', '남성': 'M', 'F': 'F', 'M': 'M', 'female': 'F', 'male': 'M', 'unisex': 'unisex'}
+        # cost 예시 (실제 데이터에 맞게 확장 필요)
+        cost_map = {
+            '5만 이하': 'under_50k', '50k_to_100k': '50k_to_100k', '100k_to_200k': '100k_to_200k',
+            '200k 이상': 'over_200k', 'mid-range': '50k_to_100k', 'budget': 'under_50k', 'luxury': 'over_200k'
+        }
+        # purpose 예시
+        purpose_map = {
+            '자기만족': 'self_satisfaction', 'good_impression': 'good_impression', 'special_event': 'special_event',
+            'date_or_social': 'date_or_social', 'formal_occasion': 'formal_occasion'
+        }
+        # durability 예시
+        durability_map = {
+            '상관없음': 'any', '2_4_hours': '2_4_hours', '4_6_hours': '4_6_hours', 'over_6_hours': 'over_6_hours'
+        }
+        # fashionstyle 예시
+        fashionstyle_map = {
+            '캐주얼': 'casual', 'casual': 'casual', 'minimal': 'minimal', 'simple': 'simple',
+            'street': 'street', 'modern': 'modern', 'chic': 'chic', 'sports': 'sports'
+        }
+        # prefercolor 예시 (공백/쉼표 제거)
+        def normalize_color(val):
+            if not isinstance(val, str):
+                return 'unknown'
+            return ','.join([c.strip().lower() for c in val.split(',')])
+
+        # personality (그대로 사용)
+        # age (그대로 사용)
+
+        norm = dict(input_dict)
+        norm['gender'] = gender_map.get(str(norm.get('gender', '')).strip(), 'F')
+        norm['cost'] = cost_map.get(str(norm.get('cost', '')).strip(), '50k_to_100k')
+        norm['purpose'] = purpose_map.get(str(norm.get('purpose', '')).strip(), 'good_impression')
+        norm['durability'] = durability_map.get(str(norm.get('durability', '')).strip(), 'any')
+        norm['fashionstyle'] = fashionstyle_map.get(str(norm.get('fashionstyle', '')).strip(), 'casual')
+        norm['prefercolor'] = normalize_color(norm.get('prefercolor', 'unknown'))
+        return norm
+
+    def _expand_multilabel_columns(self, df, multilabel_cols, prefix_sep='_'):
+        """
+        멀티라벨 컬럼(콤마로 구분된 값)을 개별 컬럼(One-hot)으로 확장
+        예: 'purpose' 컬럼에 'a,b' → purpose_a=1, purpose_b=1
+        """
+        for col in multilabel_cols:
+            # 모든 유니크 값 추출
+            all_labels = set()
+            df[col] = df[col].fillna('')
+            for items in df[col]:
+                all_labels.update([i.strip() for i in str(items).split(',') if i.strip()])
+            for label in sorted(all_labels):
+                new_col = f"{col}{prefix_sep}{label}"
+                df[new_col] = df[col].apply(lambda x: int(label in [i.strip() for i in str(x).split(',')]))
+        df = df.drop(columns=multilabel_cols)
+        return df
+
     def train(self, db_session=None, force_retrain=False):
         """모델을 훈련합니다."""
         # 재훈련 필요성 확인
@@ -306,21 +365,24 @@ class PerfumeRecommendationModel:
         print("[DEBUG] X columns:", X.columns.tolist())
         print("[DEBUG] y shape:", y.shape)
         print("[DEBUG] X head:\n", X.head())
-        
-        # 범주형 변수 인코딩
+
+        # 범주형 변수 인코딩 (LabelEncoder)
+        self.label_encoders = {}
         for column in X.select_dtypes(include=['object']).columns:
             le = LabelEncoder()
             X[column] = X[column].fillna('')
             X[column] = le.fit_transform(X[column])
             self.label_encoders[column] = le
-        
+        self.onehot_columns = None  # 사용하지 않음
+
         # 수치형 변수 스케일링
         X_scaled = self.scaler.fit_transform(X)
-        
+
         # 멀티라벨 바이너리 인코딩
         y_bin = self.mlb.fit_transform(y)
-        
+
         # 훈련/테스트 분할 (가중치 고려)
+        from sklearn.model_selection import train_test_split
         X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
             X_scaled, y_bin, weights, test_size=0.2, random_state=42
         )
@@ -379,13 +441,12 @@ class PerfumeRecommendationModel:
         self.train(db_session, force_retrain=True)
         print("피드백 기반 재훈련 완료!")
     
-    def predict_categories(self, age: int, gender: str, personality: str, cost: str, purpose: str, durability: str, fashionstyle: str, prefercolor: str) -> Tuple[List[str], float]:
+    def predict_categories(self, age: int, gender: str, personality: str, cost: str, purpose: str, durability: str, fashionstyle: str, prefercolor: str) -> tuple:
         """사용자 특성에 따른 향수 카테고리들을 예측합니다."""
         if not self.is_trained:
             raise ValueError("모델이 훈련되지 않았습니다. 먼저 train()을 호출하세요.")
-        
-        # 입력 데이터 준비
-        input_data = pd.DataFrame([{
+        # 입력값 정규화
+        input_dict = {
             'age': age,
             'gender': gender,
             'personality': personality,
@@ -394,51 +455,29 @@ class PerfumeRecommendationModel:
             'durability': durability,
             'fashionstyle': fashionstyle,
             'prefercolor': prefercolor
-        }])
-        
-        # 범주형 변수 인코딩
+        }
+        input_dict = self.preprocess_input(input_dict)
+        input_data = pd.DataFrame([input_dict])
+        # 범주형 변수 인코딩 (LabelEncoder)
         for column in input_data.select_dtypes(include=['object']).columns:
             if column in self.label_encoders:
-                # 알 수 없는 라벨 처리
                 le = self.label_encoders[column]
                 values = input_data[column].values
                 unknown_mask = ~input_data[column].isin(le.classes_)
                 if unknown_mask.any():
-                    # 성별 컬럼의 경우 특별 처리
-                    if column == 'gender':
-                        # 성별 라벨 매핑
-                        gender_mapping = {
-                            '여': 'F',
-                            '남': 'M',
-                            'F': 'F',
-                            'M': 'M'
-                        }
-                        unknown_value = values[unknown_mask][0]
-                        if unknown_value in gender_mapping:
-                            replacement_label = gender_mapping[unknown_value]
-                        else:
-                            replacement_label = le.classes_[0]  # 기본값
-                    else:
-                        # 다른 컬럼은 기본값 사용
-                        replacement_label = le.classes_[0]
-                    
+                    replacement_label = le.classes_[0]
                     input_data.loc[unknown_mask, column] = replacement_label
                     print(f"Warning: Unknown label '{values[unknown_mask][0]}' in column '{column}' replaced with '{replacement_label}'")
                 input_data[column] = le.transform(input_data[column])
-        
         # 스케일링
         input_scaled = self.scaler.transform(input_data)
-        
         # 예측
         y_pred_bin = self.model.predict(input_scaled)
-        
         # 바이너리 결과를 라벨 리스트로 변환
         predicted_categories = self.mlb.inverse_transform(y_pred_bin)[0]
-        
         # 신뢰도 계산 (예측된 라벨들의 평균 확률)
         y_pred_proba = self.model.predict_proba(input_scaled)
         confidence = np.mean([np.max(proba) for proba in y_pred_proba])
-        
         return predicted_categories, confidence
     
     def get_recommendation_reason(self, predicted_categories: List[str], age: int, 
@@ -501,7 +540,8 @@ class PerfumeRecommendationModel:
                 'scaler': self.scaler,
                 'mlb': self.mlb,  # MultiLabelBinarizer 추가
                 'is_trained': self.is_trained,
-                'last_retrain_date': self.last_retrain_date
+                'last_retrain_date': self.last_retrain_date,
+                'onehot_columns': self.onehot_columns # One-hot 컬럼 순서 저장
             }
             joblib.dump(model_data, self.model_filepath)
             print(f"[DEBUG] 모델 저장 시도: {self.model_filepath}")
@@ -520,6 +560,7 @@ class PerfumeRecommendationModel:
                 self.mlb = model_data['mlb']  # MultiLabelBinarizer 로드
                 self.is_trained = model_data['is_trained']
                 self.last_retrain_date = model_data['last_retrain_date']
+                self.onehot_columns = model_data['onehot_columns'] # One-hot 컬럼 순서 로드
                 print("모델 로드 완료!")
             else:
                 print("저장된 모델 파일이 없습니다. 새로 훈련합니다.")
