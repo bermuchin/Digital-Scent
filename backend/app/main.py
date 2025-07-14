@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import perfumes, recommendations
-from app.database import engine, Base
+from backend.app.api import perfumes, recommendations
+from backend.app.database import engine, Base
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)

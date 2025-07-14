@@ -57,7 +57,22 @@ const PerfumeList = () => {
       woody: 'bg-amber-100 text-amber-800',
       fresh: 'bg-blue-100 text-blue-800',
       oriental: 'bg-purple-100 text-purple-800',
-      citrus: 'bg-green-100 text-green-800'
+      citrus: 'bg-green-100 text-green-800',
+      musk: 'bg-gray-100 text-gray-800',
+      aquatic: 'bg-blue-100 text-blue-800',
+      green: 'bg-green-100 text-green-800',
+      gourmand: 'bg-yellow-100 text-yellow-800',
+      powdery: 'bg-pink-100 text-pink-800',
+      fruity: 'bg-red-100 text-red-800',
+      aromatic: 'bg-green-100 text-green-800',
+      chypre: 'bg-purple-100 text-purple-800',
+      fougere: 'bg-blue-100 text-blue-800',
+      amber: 'bg-orange-100 text-orange-800',
+      spicy: 'bg-red-100 text-red-800',
+      'light_floral': 'bg-pink-100 text-pink-800',
+      'white_floral': 'bg-white-100 text-gray-800',
+      casual: 'bg-gray-100 text-gray-800',
+      cozy: 'bg-brown-100 text-brown-800'
     };
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
@@ -68,7 +83,22 @@ const PerfumeList = () => {
       woody: '🌳',
       fresh: '🌊',
       oriental: '🕌',
-      citrus: '🍋'
+      citrus: '🍋',
+      musk: '🦨',
+      aquatic: '🌊',
+      green: '🌿',
+      gourmand: '🍰',
+      powdery: '🌸',
+      fruity: '🍎',
+      aromatic: '🌿',
+      chypre: '🏛️',
+      fougere: '🌿',
+      amber: '🟠',
+      spicy: '🌶️',
+      'light_floral': '🌸',
+      'white_floral': '🌼',
+      casual: '👕',
+      cozy: '🏠'
     };
     return icons[category] || '💫';
   };
@@ -128,6 +158,22 @@ const PerfumeList = () => {
                   {category === 'fresh' && '프레시'}
                   {category === 'oriental' && '오리엔탈'}
                   {category === 'citrus' && '시트러스'}
+                  {category === 'musk' && '머스크'}
+                  {category === 'aquatic' && '아쿠아틱'}
+                  {category === 'green' && '그린'}
+                  {category === 'gourmand' && '구르망'}
+                  {category === 'powdery' && '파우더리'}
+                  {category === 'fruity' && '프루티'}
+                  {category === 'aromatic' && '아로마틱'}
+                  {category === 'chypre' && '시프레'}
+                  {category === 'fougere' && '푸제르'}
+                  {category === 'amber' && '앰버'}
+                  {category === 'spicy' && '스파이시'}
+                  {category === 'light_floral' && '라이트 플로럴'}
+                  {category === 'white_floral' && '화이트 플로럴'}
+                  {category === 'casual' && '캐주얼'}
+                  {category === 'cozy' && '코지'}
+                  {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(category) && category}
                 </option>
               ))}
             </select>
@@ -198,6 +244,22 @@ const PerfumeList = () => {
                       {perfume.category === 'fresh' && '프레시'}
                       {perfume.category === 'oriental' && '오리엔탈'}
                       {perfume.category === 'citrus' && '시트러스'}
+                      {perfume.category === 'musk' && '머스크'}
+                      {perfume.category === 'aquatic' && '아쿠아틱'}
+                      {perfume.category === 'green' && '그린'}
+                      {perfume.category === 'gourmand' && '구르망'}
+                      {perfume.category === 'powdery' && '파우더리'}
+                      {perfume.category === 'fruity' && '프루티'}
+                      {perfume.category === 'aromatic' && '아로마틱'}
+                      {perfume.category === 'chypre' && '시프레'}
+                      {perfume.category === 'fougere' && '푸제르'}
+                      {perfume.category === 'amber' && '앰버'}
+                      {perfume.category === 'spicy' && '스파이시'}
+                      {perfume.category === 'light_floral' && '라이트 플로럴'}
+                      {perfume.category === 'white_floral' && '화이트 플로럴'}
+                      {perfume.category === 'casual' && '캐주얼'}
+                      {perfume.category === 'cozy' && '코지'}
+                      {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(perfume.category) && perfume.category}
                     </div>
                   </div>
 

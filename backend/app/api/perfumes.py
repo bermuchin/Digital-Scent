@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db, Perfume, PerfumeRecipe
-from app.schemas import PerfumeCreate, Perfume as PerfumeSchema, PerfumeDetail, PerfumeRecipeCreate, PerfumeRecipe as PerfumeRecipeSchema
+from backend.app.database import get_db, Perfume, PerfumeRecipe
+from backend.app.schemas import PerfumeCreate, Perfume as PerfumeSchema, PerfumeDetail, PerfumeRecipeCreate, PerfumeRecipe as PerfumeRecipeSchema
 
 router = APIRouter()
 
@@ -110,7 +110,7 @@ def get_perfume_categories():
     """사용 가능한 향수 카테고리를 반환합니다."""
     return {
         "categories": [
-            "floral", "woody", "fresh", "oriental", "citrus"
+            "citrus", "floral", "woody", "oriental", "musk", "aquatic", "green", "gourmand", "powdery", "fruity", "aromatic", "chypre", "fougere", "amber", "spicy", "light floral", "white floral", "casual", "cozy"
         ],
         "price_ranges": [
             "budget", "mid-range", "luxury"

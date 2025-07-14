@@ -21,9 +21,22 @@ def test_model():
         model.load_model()
         print("✅ 모델 로드 완료")
         
-        # 예측 테스트
-        prediction, confidence = model.predict_category(25, 'female', 'introvert', 'spring')
-        print(f"✅ 예측 성공: {prediction}, 신뢰도: {confidence}")
+        # 예측 테스트 (다중 라벨 분류)
+        predicted_categories, confidence = model.predict_categories(
+            age=25,
+            gender='F',  # female
+            personality='introvert',
+            cost='medium',
+            purpose='daily',
+            durability='medium',
+            fashionstyle='casual',
+            prefercolor='blue'
+        )
+        print(f"✅ 예측 성공: {predicted_categories}, 신뢰도: {confidence:.3f}")
+        
+        # 추천 이유 테스트
+        reason = model.get_recommendation_reason(predicted_categories, 25, 'F', 'introvert', 'spring')
+        print(f"✅ 추천 이유: {reason}")
         
         return True
         

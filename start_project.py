@@ -161,18 +161,15 @@ def run_backend():
     print("📚 API 문서: http://localhost:8000/docs")
     
     try:
-        os.chdir("backend")
         subprocess.run([
             sys.executable, "-m", "uvicorn",
-            "app.main:app",
+            "backend.app.main:app",
             "--reload",
             "--host", "0.0.0.0",
             "--port", "8000"
-        ])
+        ], cwd=script_dir, env={**os.environ, "PYTHONPATH": script_dir})
     except KeyboardInterrupt:
         print("\n👋 백엔드 서버가 중지되었습니다.")
-    finally:
-        os.chdir("..")
 
 def run_frontend():
     """프론트엔드 서버를 실행합니다."""

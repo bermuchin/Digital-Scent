@@ -48,19 +48,20 @@ class PerfumeDetail(Perfume):
 
 # 추천 요청 스키마 (익명 사용자용)
 class RecommendationRequest(BaseModel):
-    age: int
-    gender: str
-    personality: str
-    season_preference: str
-    category_preference: Optional[str] = None
-    price_preference: Optional[str] = None
-    intensity_preference: Optional[str] = None
-    longevity_preference: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    personality: Optional[str] = None
+    cost: Optional[str] = None
+    purpose: Optional[str] = None
+    durability: Optional[str] = None
+    fashionstyle: Optional[str] = None
+    prefercolor: Optional[str] = None
 
-# 추천 응답 스키마
+# 추천 응답 스키마 (멀티라벨 지원)
 class RecommendationResponse(BaseModel):
     id: int
     perfume: PerfumeDetail
+    predicted_categories: List[str]  # 예측된 향수 카테고리들
     confidence_score: float
     reason: str
     match_factors: List[str]

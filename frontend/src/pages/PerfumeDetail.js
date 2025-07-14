@@ -36,7 +36,22 @@ const PerfumeDetail = () => {
       woody: 'bg-amber-100 text-amber-800',
       fresh: 'bg-blue-100 text-blue-800',
       oriental: 'bg-purple-100 text-purple-800',
-      citrus: 'bg-green-100 text-green-800'
+      citrus: 'bg-green-100 text-green-800',
+      musk: 'bg-gray-100 text-gray-800',
+      aquatic: 'bg-blue-100 text-blue-800',
+      green: 'bg-green-100 text-green-800',
+      gourmand: 'bg-yellow-100 text-yellow-800',
+      powdery: 'bg-pink-100 text-pink-800',
+      fruity: 'bg-red-100 text-red-800',
+      aromatic: 'bg-green-100 text-green-800',
+      chypre: 'bg-purple-100 text-purple-800',
+      fougere: 'bg-blue-100 text-blue-800',
+      amber: 'bg-orange-100 text-orange-800',
+      spicy: 'bg-red-100 text-red-800',
+      'light_floral': 'bg-pink-100 text-pink-800',
+      'white_floral': 'bg-white-100 text-gray-800',
+      casual: 'bg-gray-100 text-gray-800',
+      cozy: 'bg-brown-100 text-brown-800'
     };
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
@@ -47,7 +62,22 @@ const PerfumeDetail = () => {
       woody: '🌳',
       fresh: '🌊',
       oriental: '🕌',
-      citrus: '🍋'
+      citrus: '🍋',
+      musk: '🦨',
+      aquatic: '🌊',
+      green: '🌿',
+      gourmand: '🍰',
+      powdery: '🌸',
+      fruity: '🍎',
+      aromatic: '🌿',
+      chypre: '🏛️',
+      fougere: '🌿',
+      amber: '🟠',
+      spicy: '🌶️',
+      'light_floral': '🌸',
+      'white_floral': '🌼',
+      casual: '👕',
+      cozy: '🏠'
     };
     return icons[category] || '💫';
   };
@@ -147,6 +177,22 @@ const PerfumeDetail = () => {
                   {perfume.category === 'fresh' && '프레시'}
                   {perfume.category === 'oriental' && '오리엔탈'}
                   {perfume.category === 'citrus' && '시트러스'}
+                  {perfume.category === 'musk' && '머스크'}
+                  {perfume.category === 'aquatic' && '아쿠아틱'}
+                  {perfume.category === 'green' && '그린'}
+                  {perfume.category === 'gourmand' && '구르망'}
+                  {perfume.category === 'powdery' && '파우더리'}
+                  {perfume.category === 'fruity' && '프루티'}
+                  {perfume.category === 'aromatic' && '아로마틱'}
+                  {perfume.category === 'chypre' && '시프레'}
+                  {perfume.category === 'fougere' && '푸제르'}
+                  {perfume.category === 'amber' && '앰버'}
+                  {perfume.category === 'spicy' && '스파이시'}
+                  {perfume.category === 'light_floral' && '라이트 플로럴'}
+                  {perfume.category === 'white_floral' && '화이트 플로럴'}
+                  {perfume.category === 'casual' && '캐주얼'}
+                  {perfume.category === 'cozy' && '코지'}
+                  {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(perfume.category) && perfume.category}
                 </span>
                 <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
                   <span className="mr-1">{getSeasonIcon(perfume.season_suitability)}</span>
@@ -247,15 +293,30 @@ const PerfumeDetail = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600">성격 매칭</span>
-                      <span className="font-medium">{perfume.personality_match}</span>
+                      <span className="font-medium">
+                        {perfume.personality_match === 'introvert' && '내향적'}
+                        {perfume.personality_match === 'extrovert' && '외향적'}
+                        {perfume.personality_match === 'balanced' && '균형잡힌'}
+                        {!['introvert', 'extrovert', 'balanced'].includes(perfume.personality_match) && perfume.personality_match}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600">연령대</span>
-                      <span className="font-medium">{perfume.age_group}</span>
+                      <span className="font-medium">
+                        {perfume.age_group === 'young' && '젊은층'}
+                        {perfume.age_group === 'adult' && '성인층'}
+                        {perfume.age_group === 'mature' && '성숙한층'}
+                        {!['young', 'adult', 'mature'].includes(perfume.age_group) && perfume.age_group}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600">성별 타겟</span>
-                      <span className="font-medium capitalize">{perfume.gender_target}</span>
+                      <span className="font-medium">
+                        {perfume.gender_target === 'male' && '남성용'}
+                        {perfume.gender_target === 'female' && '여성용'}
+                        {perfume.gender_target === 'unisex' && '유니섹스'}
+                        {!['male', 'female', 'unisex'].includes(perfume.gender_target) && perfume.gender_target}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600">계절 적합성</span>

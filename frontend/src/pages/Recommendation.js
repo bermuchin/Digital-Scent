@@ -10,11 +10,11 @@ const Recommendation = () => {
     age: '',
     gender: '',
     personality: '',
-    season_preference: '',
-    category_preference: '',
-    price_preference: '',
-    intensity_preference: '',
-    longevity_preference: ''
+    cost: '',
+    purpose: '',
+    durability: '',
+    fashionstyle: '',
+    prefercolor: ''
   });
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -72,52 +72,56 @@ const Recommendation = () => {
     }
   };
 
+  const mbtiOptions = [
+    'ISTJ', 'ISFJ', 'INFJ', 'INTJ', 'ISTP', 'ISFP', 'INFP', 'INTP',
+    'ESTP', 'ESFP', 'ENFP', 'ENTP', 'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ'
+  ];
+  const costOptions = ['5만 이하', '5~10만', '10~20만', '20만 이상'];
+  const purposeOptions = ['좋은 인상', '기분 전환', '자기만족', '데이트', '공식적인 자리', '특별한 날', '차별화된 스타일'];
+  const durabilityOptions = ['2~4', '4~6', '6이상', '상관없음'];
+  const fashionstyleOptions = ['캐주얼', '미니멀/심플', '스트리트', '클래식/정장', '로맨틱/러블리', '빈티지', '스포티', '모던/시크', '자유로운 스타일(혼합형)'];
+  const prefercolorOptions = ['흰색', '검정', '베이지/브라운', '파란색', '분홍/코랄', '빨간색', '초록/민트', '보라색', '노란색/오렌지'];
+
   const renderStep1 = () => (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          나이
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">나이</label>
         <input
           type="number"
+          min="15"
+          max="65"
+          placeholder="15-65세 사이의 나이를 입력하세요"
           value={formData.age}
           onChange={(e) => handleInputChange('age', e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          placeholder="나이를 입력하세요"
-          min="1"
-          max="100"
         />
+        <p className="text-sm text-gray-500 mt-1">15세부터 65세까지 입력 가능합니다</p>
       </div>
-
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          성별
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">성별</label>
         <select
           value={formData.gender}
           onChange={(e) => handleInputChange('gender', e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
           <option value="">성별을 선택하세요</option>
-          <option value="male">남성</option>
-          <option value="female">여성</option>
-          <option value="other">기타</option>
+          <option value="">선택 안함</option>
+          <option value="남">남</option>
+          <option value="여">여</option>
         </select>
       </div>
-
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          성격
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">성격(MBTI)</label>
         <select
           value={formData.personality}
           onChange={(e) => handleInputChange('personality', e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
-          <option value="">성격을 선택하세요</option>
-          <option value="introvert">내향적</option>
-          <option value="extrovert">외향적</option>
-          <option value="balanced">균형잡힌</option>
+          <option value="">MBTI를 선택하세요</option>
+          <option value="">선택 안함</option>
+          {mbtiOptions.map((mbti) => (
+            <option key={mbti} value={mbti}>{mbti}</option>
+          ))}
         </select>
       </div>
     </div>
@@ -126,53 +130,73 @@ const Recommendation = () => {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          선호하는 계절
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">가격대</label>
         <select
-          value={formData.season_preference}
-          onChange={(e) => handleInputChange('season_preference', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        >
-          <option value="">계절을 선택하세요</option>
-          <option value="spring">봄</option>
-          <option value="summer">여름</option>
-          <option value="autumn">가을</option>
-          <option value="winter">겨울</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          선호하는 향수 카테고리
-        </label>
-        <select
-          value={formData.category_preference}
-          onChange={(e) => handleInputChange('category_preference', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        >
-          <option value="">카테고리를 선택하세요</option>
-          <option value="floral">플로럴</option>
-          <option value="woody">우디</option>
-          <option value="fresh">프레시</option>
-          <option value="oriental">오리엔탈</option>
-          <option value="citrus">시트러스</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          선호하는 가격대
-        </label>
-        <select
-          value={formData.price_preference}
-          onChange={(e) => handleInputChange('price_preference', e.target.value)}
+          value={formData.cost}
+          onChange={(e) => handleInputChange('cost', e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
           <option value="">가격대를 선택하세요</option>
-          <option value="budget">저가</option>
-          <option value="mid-range">중가</option>
-          <option value="luxury">고가</option>
+          <option value="">선택 안함</option>
+          {costOptions.map((cost) => (
+            <option key={cost} value={cost}>{cost}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">추천 목적</label>
+        <select
+          value={formData.purpose}
+          onChange={(e) => handleInputChange('purpose', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        >
+          <option value="">목적을 선택하세요</option>
+          <option value="">선택 안함</option>
+          {purposeOptions.map((purpose) => (
+            <option key={purpose} value={purpose}>{purpose}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">지속력</label>
+        <select
+          value={formData.durability}
+          onChange={(e) => handleInputChange('durability', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        >
+          <option value="">지속력을 선택하세요</option>
+          <option value="">선택 안함</option>
+          {durabilityOptions.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">패션 스타일</label>
+        <select
+          value={formData.fashionstyle}
+          onChange={(e) => handleInputChange('fashionstyle', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        >
+          <option value="">패션 스타일을 선택하세요</option>
+          <option value="">선택 안함</option>
+          {fashionstyleOptions.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">선호 색상</label>
+        <select
+          value={formData.prefercolor}
+          onChange={(e) => handleInputChange('prefercolor', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        >
+          <option value="">색상을 선택하세요</option>
+          <option value="">선택 안함</option>
+          {prefercolorOptions.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
       </div>
     </div>
@@ -207,18 +231,129 @@ const Recommendation = () => {
           <div className="space-y-4">
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">추천 이유</h4>
-              <p className="text-gray-600">{reason}</p>
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🤖</span>
+                  <p className="text-gray-700 leading-relaxed">{reason}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-2">예측된 향수 카테고리</h4>
+              <p className="text-sm text-gray-600 mb-3">AI가 분석한 결과, 다음 향수 카테고리들이 당신에게 적합할 것으로 예측됩니다:</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {recommendation.predicted_categories?.map((category, index) => {
+                  const getCategoryColor = (cat) => {
+                    const colors = {
+                      floral: 'bg-pink-100 text-pink-800 border-pink-200',
+                      woody: 'bg-amber-100 text-amber-800 border-amber-200',
+                      fresh: 'bg-blue-100 text-blue-800 border-blue-200',
+                      oriental: 'bg-purple-100 text-purple-800 border-purple-200',
+                      citrus: 'bg-green-100 text-green-800 border-green-200',
+                      musk: 'bg-gray-100 text-gray-800 border-gray-200',
+                      aquatic: 'bg-blue-100 text-blue-800 border-blue-200',
+                      green: 'bg-green-100 text-green-800 border-green-200',
+                      gourmand: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                      powdery: 'bg-pink-100 text-pink-800 border-pink-200',
+                      fruity: 'bg-red-100 text-red-800 border-red-200',
+                      aromatic: 'bg-green-100 text-green-800 border-green-200',
+                      chypre: 'bg-purple-100 text-purple-800 border-purple-200',
+                      fougere: 'bg-blue-100 text-blue-800 border-blue-200',
+                      amber: 'bg-orange-100 text-orange-800 border-orange-200',
+                      spicy: 'bg-red-100 text-red-800 border-red-200',
+                      light_floral: 'bg-pink-100 text-pink-800 border-pink-200',
+                      white_floral: 'bg-white-100 text-gray-800 border-gray-200',
+                      casual: 'bg-gray-100 text-gray-800 border-gray-200',
+                      cozy: 'bg-brown-100 text-brown-800 border-brown-200',
+                      other: 'bg-gray-100 text-gray-800 border-gray-200'
+                    };
+                    return colors[cat] || colors.other;
+                  };
+
+                  const getCategoryIcon = (cat) => {
+                    const icons = {
+                      floral: '🌸',
+                      woody: '🌳',
+                      fresh: '🌊',
+                      oriental: '🕌',
+                      citrus: '🍋',
+                      musk: '🦨',
+                      aquatic: '🌊',
+                      green: '🌿',
+                      gourmand: '🍰',
+                      powdery: '🌸',
+                      fruity: '🍎',
+                      aromatic: '🌿',
+                      chypre: '🏛️',
+                      fougere: '🌿',
+                      amber: '🟠',
+                      spicy: '🌶️',
+                      light_floral: '🌸',
+                      white_floral: '🌼',
+                      casual: '👕',
+                      cozy: '🏠',
+                      other: '💫'
+                    };
+                    return icons[cat] || icons.other;
+                  };
+
+                  const getCategoryName = (cat) => {
+                    const names = {
+                      floral: '플로럴',
+                      woody: '우디',
+                      fresh: '프레시',
+                      oriental: '오리엔탈',
+                      citrus: '시트러스',
+                      musk: '머스크',
+                      aquatic: '아쿠아틱',
+                      green: '그린',
+                      gourmand: '구르망',
+                      powdery: '파우더리',
+                      fruity: '프루티',
+                      aromatic: '아로마틱',
+                      chypre: '시프레',
+                      fougere: '푸제르',
+                      amber: '앰버',
+                      spicy: '스파이시',
+                      light_floral: '라이트 플로럴',
+                      white_floral: '화이트 플로럴',
+                      casual: '캐주얼',
+                      cozy: '코지',
+                      other: '기타'
+                    };
+                    return names[cat] || cat;
+                  };
+
+                  return (
+                    <span
+                      key={index}
+                      className={`px-4 py-2 rounded-full text-sm font-medium border ${getCategoryColor(category)} flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow duration-200`}
+                    >
+                      <span className="text-lg">{getCategoryIcon(category)}</span>
+                      <span>{getCategoryName(category)}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {recommendation.predicted_categories?.length > 1 && (
+                <p className="text-xs text-gray-500 italic">
+                  💡 여러 카테고리가 예측된 경우, 이는 복합적인 향수 조합을 선호한다는 의미입니다.
+                </p>
+              )}
             </div>
 
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">매칭 요소</h4>
+              <p className="text-sm text-gray-600 mb-3">이 추천이 선택된 주요 이유들입니다:</p>
               <div className="flex flex-wrap gap-2">
                 {match_factors.map((factor, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                    className="px-3 py-2 bg-primary-100 text-primary-700 rounded-full text-sm font-medium border border-primary-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center gap-2"
                   >
-                    {factor}
+                    <span className="text-primary-600">✨</span>
+                    <span>{factor}</span>
                   </span>
                 ))}
               </div>

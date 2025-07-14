@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db, Perfume, Recommendation
-from app.schemas import RecommendationRequest, RecommendationResponse, RecommendationFeedback
-from app.models.recommendation_model import PerfumeRecommendationModel
+from backend.app.database import get_db, Perfume, Recommendation
+from backend.app.schemas import RecommendationRequest, RecommendationResponse, RecommendationFeedback
+from backend.app.models.recommendation_model import PerfumeRecommendationModel
 import random
 
 router = APIRouter()
@@ -12,91 +12,71 @@ router = APIRouter()
 recommendation_model = PerfumeRecommendationModel()
 try:
     recommendation_model.load_model()
-    print("기존 모델을 성공적으로 로드했습니다.")
+    print("기존 멀티라벨 모델을 성공적으로 로드했습니다.")
 except Exception as e:
     print(f"모델 로드 실패, 새로 훈련합니다: {e}")
     recommendation_model.train()
 
 @router.post("/", response_model=RecommendationResponse)
 def get_recommendation(request: RecommendationRequest, db: Session = Depends(get_db)):
-    """사용자 선호도에 따른 향수를 추천합니다."""
+    """사용자 선호도에 따른 향수를 추천합니다 (멀티라벨)."""
     # 입력 데이터 검증 및 기본값 설정
     age = request.age if request.age else 25
-    gender = request.gender if request.gender and request.gender.strip() else "other"
-    personality = request.personality if request.personality and request.personality.strip() else "balanced"
-    season_preference = request.season_preference if request.season_preference and request.season_preference.strip() else "spring"
-    
-    # ML 모델로 향수 카테고리 예측
-    predicted_category, confidence = recommendation_model.predict_category(
+    gender = request.gender if request.gender else "남"
+    personality = request.personality if request.personality else "ISTJ"
+    cost = request.cost if request.cost else "5만 이하"
+    purpose = request.purpose if request.purpose else "자기만족"
+    durability = request.durability if request.durability else "상관없음"
+    fashionstyle = request.fashionstyle if request.fashionstyle else "캐주얼"
+    prefercolor = request.prefercolor if request.prefercolor else "흰색"
+
+    # ML 모델로 향수 카테고리들 예측 (멀티라벨)
+    predicted_categories, confidence = recommendation_model.predict_categories(
         age=age,
         gender=gender,
         personality=personality,
-        season=season_preference
+        cost=cost,
+        purpose=purpose,
+        durability=durability,
+        fashionstyle=fashionstyle,
+        prefercolor=prefercolor
     )
+
+    # 예측된 카테고리들 중 하나를 선택하여 향수 추천
+    # 가장 높은 신뢰도를 가진 카테고리나 첫 번째 카테고리 사용
+    selected_category = predicted_categories[0] if predicted_categories else "citrus"
     
     # 해당 카테고리의 향수들 조회
-    query = db.query(Perfume).filter(Perfume.category == predicted_category)
-    
-    # 추가 필터링
-    if age < 30:
-        query = query.filter(Perfume.age_group == "young")
-    elif age > 50:
-        query = query.filter(Perfume.age_group == "mature")
-    else:
-        query = query.filter(Perfume.age_group == "adult")
-    
-    if gender != "other":
-        query = query.filter(
-            (Perfume.gender_target == gender) | 
-            (Perfume.gender_target == "unisex")
-        )
-    
-    if season_preference:
-        query = query.filter(
-            (Perfume.season_suitability == season_preference) |
-            (Perfume.season_suitability == "all")
-        )
-    
-    if personality:
-        query = query.filter(Perfume.personality_match == personality)
-    
-    if request.price_preference:
-        query = query.filter(Perfume.price_range == request.price_preference)
-    
-    # 결과가 없으면 필터를 완화
+    query = db.query(Perfume).filter(Perfume.category == selected_category)
     perfumes = query.all()
-    if not perfumes:
-        # 카테고리만으로 다시 검색
-        perfumes = db.query(Perfume).filter(Perfume.category == predicted_category).all()
     
-    if not perfumes:
-        raise HTTPException(status_code=404, detail="적합한 향수를 찾을 수 없습니다")
+    # 선택된 카테고리에 향수가 없으면 다른 예측 카테고리 시도
+    if not perfumes and len(predicted_categories) > 1:
+        for category in predicted_categories[1:]:
+            perfumes = db.query(Perfume).filter(Perfume.category == category).all()
+            if perfumes:
+                selected_category = category
+                break
     
-    # 랜덤하게 하나 선택 (실제로는 더 정교한 랭킹 알고리즘 사용)
+    # 여전히 향수가 없으면 모든 향수에서 랜덤 선택
+    if not perfumes:
+        perfumes = db.query(Perfume).all()
+        if not perfumes:
+            raise HTTPException(status_code=404, detail="적합한 향수를 찾을 수 없습니다")
+    
     selected_perfume = random.choice(perfumes)
-    
-    # 추천 이유 생성
+
+    # 추천 이유 생성 (멀티라벨 지원)
     reason = recommendation_model.get_recommendation_reason(
-        predicted_category=predicted_category,
+        predicted_categories=predicted_categories,
         age=age,
         gender=gender,
         personality=personality,
-        season=season_preference
+        season=None  # season은 더 이상 사용하지 않으므로 None 전달
     )
-    
-    # 매칭 요소들
-    match_factors = []
-    if selected_perfume.personality_match == personality:
-        match_factors.append("성격 매칭")
-    if selected_perfume.season_suitability == season_preference:
-        match_factors.append("계절 매칭")
-    if selected_perfume.age_group in ["young", "adult", "mature"]:
-        if (age < 30 and selected_perfume.age_group == "young") or \
-           (30 <= age <= 50 and selected_perfume.age_group == "adult") or \
-           (age > 50 and selected_perfume.age_group == "mature"):
-            match_factors.append("연령대 매칭")
-    
-    # 추천 기록을 데이터베이스에 저장 (익명 사용자용)
+
+    match_factors = []  # (필요시 feature 기반 매칭 요소 추가)
+
     db_recommendation = Recommendation(
         perfume_id=selected_perfume.id,
         confidence_score=confidence,
@@ -105,10 +85,11 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
     db.add(db_recommendation)
     db.commit()
     db.refresh(db_recommendation)
-    
+
     return RecommendationResponse(
-        id=db_recommendation.id,  # 추천 ID 추가
+        id=db_recommendation.id,
         perfume=selected_perfume,
+        predicted_categories=predicted_categories,  # 멀티라벨 예측 결과
         confidence_score=confidence,
         reason=reason,
         match_factors=match_factors
@@ -158,7 +139,7 @@ def get_popular_perfumes(db: Session = Depends(get_db)):
 @router.post("/retrain-model")
 def retrain_model_with_feedback(db: Session = Depends(get_db)):
     recommendation_model.retrain_with_feedback(db)
-    return {"message": "모델이 피드백을 반영하여 재학습되었습니다."}
+    return {"message": "멀티라벨 모델이 피드백을 반영하여 재학습되었습니다."}
 
 @router.get("/model-status")
 def get_model_status():
