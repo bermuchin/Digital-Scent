@@ -2,6 +2,21 @@
 
 AI 기반 향수 추천 및 제조법 제공 서비스입니다. 사용자의 나이, 성별, 성격, 계절 선호도 등을 분석하여 개인화된 향수를 추천하고, 직접 제조할 수 있는 레시피를 제공합니다.
 
+## 주요 실행/관리 스크립트
+
+- `start_project.py` : 전체 개발환경 자동 세팅 및 서버 실행 통합 스크립트
+- `run_backend.py` : 백엔드(FastAPI) 서버 실행 (의존성 설치, DB 초기화 포함)
+- `run_backend_conda.py` : Conda 환경에서 백엔드 서버 실행
+- `run_frontend.py` : 프론트엔드(React) 개발 서버 실행
+- `train_model.py` : 전체 데이터로 추천 모델 훈련 및 저장
+- `force_retrain.py` : 최신 데이터로 추천 모델 강제 재훈련
+- `test_model.py` : 저장된 추천 모델의 예측/추천 이유 테스트
+- `process_excel_data.py` : 엑셀 데이터 전처리 및 멀티라벨 모델 훈련/저장
+- `check_feedback.py` : 피드백 데이터 통계, 분포, 모델 재훈련 필요성 등 분석
+- `check_labels.py` : DB/엑셀의 향수 카테고리 분포 비교 분석
+- `reset_feedback.py` : 피드백 데이터 전체/일부 초기화, 백업, 날짜별 초기화 등
+
+
 ## 주요 기능
 
 ### 백엔드 (FastAPI)
@@ -38,6 +53,13 @@ AI 기반 향수 추천 및 제조법 제공 서비스입니다. 사용자의 �
 - **Axios**: HTTP 클라이언트
 - **Lucide React**: 아이콘
 - **Framer Motion**: 애니메이션
+
+## AI/ML 주요 라이브러리(툴)
+
+- **scikit-learn** : 머신러닝 모델(랜덤포레스트, 멀티라벨 분류, 전처리, 평가 등)
+- **pandas** : 데이터프레임 기반 데이터 처리/분석
+- **numpy** : 수치 연산 및 배열 처리
+- **joblib** : 모델 및 전처리 객체 직렬화/저장/로드
 
 ## 설치 및 실행
 
@@ -117,29 +139,4 @@ npm start
 - `GET /api/recommendations/user/{id}/history` - 추천 기록
 - `POST /api/recommendations/feedback/{id}` - 피드백 제출
 
-## 향수 카테고리
-
-### 5가지 주요 카테고리
-1. **플로럴 (Floral)**: 장미, 재스민, 라벤더 등 꽃향기
-2. **우디 (Woody)**: 샌달우드, 시더, 파인 등 나무향기
-3. **프레시 (Fresh)**: 시트러스, 바다, 민트 등 상쾌한 향기
-4. **오리엔탈 (Oriental)**: 바닐라, 스파이스, 앰버 등 동양적 향기
-5. **시트러스 (Citrus)**: 레몬, 라임, 오렌지 등 과일향기
-
-## 배포
-
-### 백엔드 배포 (예: Heroku)
-```bash
-# Procfile 생성
-web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-
-# 환경 변수 설정
-DATABASE_URL=postgresql://...
-```
-
-### 프론트엔드 배포 (예: Vercel)
-```bash
-npm run build
-# Vercel에 배포
-```
 
