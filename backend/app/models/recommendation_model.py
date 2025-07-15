@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, multilabel_confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, multilabel_confusion_matrix, hamming_loss, f1_score, jaccard_score
 from sklearn.multiclass import OneVsRestClassifier
 import joblib
 import os
@@ -384,8 +384,20 @@ class PerfumeRecommendationModel:
         # 훈련/테스트 분할 (가중치 고려)
         from sklearn.model_selection import train_test_split
         X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
-            X_scaled, y_bin, weights, test_size=0.2, random_state=42
+            X_scaled, y_bin, weights, test_size=0.2, random_state=42, stratify=None
         )
+        
+        # 멀티라벨 분류에 적합한 모델 설정
+        from sklearn.ensemble import RandomForestClassifier
+        base_classifier = RandomForestClassifier(
+            n_estimators=200,  # 트리 개수 증가
+            max_depth=10,      # 깊이 제한으로 과적합 방지
+            min_samples_split=5,
+            min_samples_leaf=2,
+            class_weight='balanced',  # 클래스 불균형 처리
+            random_state=42
+        )
+        self.model = OneVsRestClassifier(base_classifier)
         
         # 피드백 데이터가 있을 때만 가중치 적용
         if np.any(weights != 1.0):
@@ -404,18 +416,48 @@ class PerfumeRecommendationModel:
             print(f"[DEBUG] X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
             self.model.fit(X_train, y_train)
         
-        # 모델 평가
+        # 모델 평가 - 멀티라벨 분류에 적합한 지표들
         y_pred = self.model.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
-        print(f"Model accuracy: {accuracy:.3f}")
+        
+        # 1. Exact Match Accuracy (기존 accuracy)
+        from sklearn.metrics import accuracy_score
+        exact_accuracy = accuracy_score(y_test, y_pred)
+        print(f"Exact Match Accuracy: {exact_accuracy:.3f}")
+        
+        # 2. Hamming Loss (멀티라벨 분류에 적합)
+        from sklearn.metrics import hamming_loss
+        hamming_loss_score = hamming_loss(y_test, y_pred)
+        print(f"Hamming Loss: {hamming_loss_score:.3f} (낮을수록 좋음)")
+        
+        # 3. Micro-averaged F1 Score
+        from sklearn.metrics import f1_score
+        micro_f1 = f1_score(y_test, y_pred, average='micro', zero_division=0)
+        print(f"Micro-averaged F1 Score: {micro_f1:.3f}")
+        
+        # 4. Macro-averaged F1 Score
+        macro_f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
+        print(f"Macro-averaged F1 Score: {macro_f1:.3f}")
+        
+        # 5. Subset Accuracy (Exact Match)
+        from sklearn.metrics import jaccard_score
+        subset_accuracy = jaccard_score(y_test, y_pred, average='samples', zero_division=0)
+        print(f"Subset Accuracy (Jaccard): {subset_accuracy:.3f}")
 
         # Classification Report
-        print("Classification Report:")
-        print(classification_report(y_test, y_pred, target_names=self.mlb.classes_))
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred, target_names=self.mlb.classes_, zero_division=0))
 
         # Multilabel Confusion Matrix
-        print("Multilabel Confusion Matrix:")
+        print("\nMultilabel Confusion Matrix:")
         print(multilabel_confusion_matrix(y_test, y_pred))
+        
+        # 각 라벨별 예측 성능 분석
+        print("\n라벨별 예측 성능 분석:")
+        for i, label in enumerate(self.mlb.classes_):
+            true_count = np.sum(y_test[:, i])
+            pred_count = np.sum(y_pred[:, i])
+            correct_count = np.sum((y_test[:, i] == 1) & (y_pred[:, i] == 1))
+            print(f"{label:15s}: 실제 {true_count:3d}개, 예측 {pred_count:3d}개, 정확 {correct_count:3d}개")
         
         self.is_trained = True
         self.last_retrain_date = datetime.utcnow()
