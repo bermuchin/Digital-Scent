@@ -23,10 +23,8 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
     # 입력 데이터 검증 및 기본값 설정
     age = request.age if request.age else 25
     gender = request.gender if request.gender else "남"
-    personality = request.personality if request.personality else "ISTJ"
-    cost = request.cost if request.cost else "5만 이하"
+    mbti = request.mbti if request.mbti else "ISTJ"
     purpose = request.purpose if request.purpose else "자기만족"
-    durability = request.durability if request.durability else "상관없음"
     fashionstyle = request.fashionstyle if request.fashionstyle else "캐주얼"
     prefercolor = request.prefercolor if request.prefercolor else "흰색"
 
@@ -34,65 +32,65 @@ def get_recommendation(request: RecommendationRequest, db: Session = Depends(get
     predicted_categories, confidence = recommendation_model.predict_categories(
         age=age,
         gender=gender,
-        personality=personality,
-        cost=cost,
+        mbti=mbti,
         purpose=purpose,
-        durability=durability,
         fashionstyle=fashionstyle,
         prefercolor=prefercolor
     )
 
+    print(f"[DEBUG] predicted_categories: {predicted_categories}")
+    print(f"[DEBUG] confidence: {confidence}")
+
     # 예측된 카테고리들 중 하나를 선택하여 향수 추천
-    # 가장 높은 신뢰도를 가진 카테고리나 첫 번째 카테고리 사용
-    selected_category = predicted_categories[0] if predicted_categories else "citrus"
-    
-    # 해당 카테고리의 향수들 조회
+    if predicted_categories:
+        selected_category = predicted_categories[0]
+    else:
+        selected_category = max(confidence, key=confidence.get) if confidence else "citrus"
     query = db.query(Perfume).filter(Perfume.category == selected_category)
     perfumes = query.all()
-    
-    # 선택된 카테고리에 향수가 없으면 다른 예측 카테고리 시도
     if not perfumes and len(predicted_categories) > 1:
         for category in predicted_categories[1:]:
             perfumes = db.query(Perfume).filter(Perfume.category == category).all()
             if perfumes:
                 selected_category = category
                 break
-    
-    # 여전히 향수가 없으면 모든 향수에서 랜덤 선택
     if not perfumes:
         perfumes = db.query(Perfume).all()
         if not perfumes:
             raise HTTPException(status_code=404, detail="적합한 향수를 찾을 수 없습니다")
-    
     selected_perfume = random.choice(perfumes)
-
-    # 추천 이유 생성 (멀티라벨 지원)
     reason = recommendation_model.get_recommendation_reason(
         predicted_categories=predicted_categories,
         age=age,
         gender=gender,
-        personality=personality,
-        season=None  # season은 더 이상 사용하지 않으므로 None 전달
+        mbti=mbti,
+        season=None
     )
-
-    match_factors = []  # (필요시 feature 기반 매칭 요소 추가)
+    match_factors = []
+    # DB에는 float만 저장 (가장 높은 confidence 값)
+    confidence_score = max(confidence.values()) if confidence else 0.0
 
     db_recommendation = Recommendation(
         perfume_id=selected_perfume.id,
-        confidence_score=confidence,
+        confidence_score=confidence_score,
         reason=reason
     )
     db.add(db_recommendation)
     db.commit()
     db.refresh(db_recommendation)
 
+    # 노트별 추천 향조 추출
+    notes_recommendation = recommendation_model.recommend_notes_by_confidence(confidence)
+
     return RecommendationResponse(
         id=db_recommendation.id,
         perfume=selected_perfume,
-        predicted_categories=predicted_categories,  # 멀티라벨 예측 결과
-        confidence_score=confidence,
+        predicted_categories=predicted_categories,
+        confidence_score=confidence_score,
+        confidence_dict=confidence,
         reason=reason,
-        match_factors=match_factors
+        match_factors=match_factors,
+        notes_recommendation=notes_recommendation
     )
 
 @router.post("/feedback/{recommendation_id}")

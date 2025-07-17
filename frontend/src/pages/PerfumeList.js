@@ -51,6 +51,12 @@ const PerfumeList = () => {
     perfume.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // 카테고리 통일 함수
+  const unifyFloral = (category) => {
+    if (["light floral", "white floral", "light_floral", "white_floral"].includes(category)) return "floral";
+    return category;
+  };
+
   const getCategoryColor = (category) => {
     const colors = {
       floral: 'bg-pink-100 text-pink-800',
@@ -152,28 +158,28 @@ const PerfumeList = () => {
             >
               <option value="">모든 카테고리</option>
               {categories.categories?.map((category) => (
-                <option key={category} value={category}>
-                  {category === 'floral' && '플로럴'}
-                  {category === 'woody' && '우디'}
-                  {category === 'fresh' && '프레시'}
-                  {category === 'oriental' && '오리엔탈'}
-                  {category === 'citrus' && '시트러스'}
-                  {category === 'musk' && '머스크'}
-                  {category === 'aquatic' && '아쿠아틱'}
-                  {category === 'green' && '그린'}
-                  {category === 'gourmand' && '구르망'}
-                  {category === 'powdery' && '파우더리'}
-                  {category === 'fruity' && '프루티'}
-                  {category === 'aromatic' && '아로마틱'}
-                  {category === 'chypre' && '시프레'}
-                  {category === 'fougere' && '푸제르'}
-                  {category === 'amber' && '앰버'}
-                  {category === 'spicy' && '스파이시'}
-                  {category === 'light_floral' && '라이트 플로럴'}
-                  {category === 'white_floral' && '화이트 플로럴'}
-                  {category === 'casual' && '캐주얼'}
-                  {category === 'cozy' && '코지'}
-                  {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(category) && category}
+                <option key={category} value={unifyFloral(category)}>
+                  {unifyFloral(category) === 'floral' && '플로럴'}
+                  {unifyFloral(category) === 'woody' && '우디'}
+                  {unifyFloral(category) === 'fresh' && '프레시'}
+                  {unifyFloral(category) === 'oriental' && '오리엔탈'}
+                  {unifyFloral(category) === 'citrus' && '시트러스'}
+                  {unifyFloral(category) === 'musk' && '머스크'}
+                  {unifyFloral(category) === 'aquatic' && '아쿠아틱'}
+                  {unifyFloral(category) === 'green' && '그린'}
+                  {unifyFloral(category) === 'gourmand' && '구르망'}
+                  {unifyFloral(category) === 'powdery' && '파우더리'}
+                  {unifyFloral(category) === 'fruity' && '프루티'}
+                  {unifyFloral(category) === 'aromatic' && '아로마틱'}
+                  {unifyFloral(category) === 'chypre' && '시프레'}
+                  {unifyFloral(category) === 'fougere' && '푸제르'}
+                  {unifyFloral(category) === 'amber' && '앰버'}
+                  {unifyFloral(category) === 'spicy' && '스파이시'}
+                  {unifyFloral(category) === 'light_floral' && '라이트 플로럴'}
+                  {unifyFloral(category) === 'white_floral' && '화이트 플로럴'}
+                  {unifyFloral(category) === 'casual' && '캐주얼'}
+                  {unifyFloral(category) === 'cozy' && '코지'}
+                  {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(unifyFloral(category)) && unifyFloral(category)}
                 </option>
               ))}
             </select>
@@ -237,29 +243,29 @@ const PerfumeList = () => {
                       </h3>
                       <p className="text-gray-600">{perfume.brand}</p>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(perfume.category)}`}>
-                      <span className="mr-1">{getCategoryIcon(perfume.category)}</span>
-                      {perfume.category === 'floral' && '플로럴'}
-                      {perfume.category === 'woody' && '우디'}
-                      {perfume.category === 'fresh' && '프레시'}
-                      {perfume.category === 'oriental' && '오리엔탈'}
-                      {perfume.category === 'citrus' && '시트러스'}
-                      {perfume.category === 'musk' && '머스크'}
-                      {perfume.category === 'aquatic' && '아쿠아틱'}
-                      {perfume.category === 'green' && '그린'}
-                      {perfume.category === 'gourmand' && '구르망'}
-                      {perfume.category === 'powdery' && '파우더리'}
-                      {perfume.category === 'fruity' && '프루티'}
-                      {perfume.category === 'aromatic' && '아로마틱'}
-                      {perfume.category === 'chypre' && '시프레'}
-                      {perfume.category === 'fougere' && '푸제르'}
-                      {perfume.category === 'amber' && '앰버'}
-                      {perfume.category === 'spicy' && '스파이시'}
-                      {perfume.category === 'light_floral' && '라이트 플로럴'}
-                      {perfume.category === 'white_floral' && '화이트 플로럴'}
-                      {perfume.category === 'casual' && '캐주얼'}
-                      {perfume.category === 'cozy' && '코지'}
-                      {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(perfume.category) && perfume.category}
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(unifyFloral(perfume.category))}`}>
+                      <span className="mr-1">{getCategoryIcon(unifyFloral(perfume.category))}</span>
+                      {unifyFloral(perfume.category) === 'floral' && '플로럴'}
+                      {unifyFloral(perfume.category) === 'woody' && '우디'}
+                      {unifyFloral(perfume.category) === 'fresh' && '프레시'}
+                      {unifyFloral(perfume.category) === 'oriental' && '오리엔탈'}
+                      {unifyFloral(perfume.category) === 'citrus' && '시트러스'}
+                      {unifyFloral(perfume.category) === 'musk' && '머스크'}
+                      {unifyFloral(perfume.category) === 'aquatic' && '아쿠아틱'}
+                      {unifyFloral(perfume.category) === 'green' && '그린'}
+                      {unifyFloral(perfume.category) === 'gourmand' && '구르망'}
+                      {unifyFloral(perfume.category) === 'powdery' && '파우더리'}
+                      {unifyFloral(perfume.category) === 'fruity' && '프루티'}
+                      {unifyFloral(perfume.category) === 'aromatic' && '아로마틱'}
+                      {unifyFloral(perfume.category) === 'chypre' && '시프레'}
+                      {unifyFloral(perfume.category) === 'fougere' && '푸제르'}
+                      {unifyFloral(perfume.category) === 'amber' && '앰버'}
+                      {unifyFloral(perfume.category) === 'spicy' && '스파이시'}
+                      {unifyFloral(perfume.category) === 'light_floral' && '라이트 플로럴'}
+                      {unifyFloral(perfume.category) === 'white_floral' && '화이트 플로럴'}
+                      {unifyFloral(perfume.category) === 'casual' && '캐주얼'}
+                      {unifyFloral(perfume.category) === 'cozy' && '코지'}
+                      {!['floral', 'woody', 'fresh', 'oriental', 'citrus', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity', 'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light_floral', 'white_floral', 'casual', 'cozy'].includes(unifyFloral(perfume.category)) && unifyFloral(perfume.category)}
                     </div>
                   </div>
 

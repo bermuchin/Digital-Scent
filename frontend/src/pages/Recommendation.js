@@ -3,6 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, CheckCircle, Heart, Star } from 'lucide-react';
 import { recommendationAPI } from '../services/api';
 
+const getCategoryName = (cat) => {
+  const names = {
+    floral: '플로럴',
+    woody: '우디',
+    fresh: '프레시',
+    oriental: '오리엔탈',
+    citrus: '시트러스',
+    musk: '머스크',
+    aquatic: '아쿠아틱',
+    green: '그린',
+    gourmand: '구르망',
+    powdery: '파우더리',
+    fruity: '프루티',
+    aromatic: '아로마틱',
+    chypre: '시프레',
+    fougere: '푸제르',
+    amber: '앰버',
+    spicy: '스파이시',
+    cozy: '코지',
+    other: '기타'
+  };
+  return names[cat] || cat;
+};
+
 const Recommendation = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
@@ -10,9 +34,7 @@ const Recommendation = () => {
     age: '',
     gender: '',
     personality: '',
-    cost: '',
     purpose: '',
-    durability: '',
     fashionstyle: '',
     prefercolor: ''
   });
@@ -21,7 +43,7 @@ const Recommendation = () => {
 
   const steps = [
     { id: 1, title: '기본 정보', description: '나이, 성별, 성격' },
-    { id: 2, title: '선호도', description: '계절, 카테고리, 가격대' },
+    { id: 2, title: '선호도', description: '추천 목적, 패션 스타일, 선호 색상' },
     { id: 3, title: '추천 결과', description: 'AI 추천 향수' }
   ];
 
@@ -49,7 +71,10 @@ const Recommendation = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const response = await recommendationAPI.getRecommendation(formData);
+      // cost, durability 제거
+      const { age, gender, personality, purpose, fashionstyle, prefercolor } = formData;
+      const requestData = { age, gender, personality, purpose, fashionstyle, prefercolor };
+      const response = await recommendationAPI.getRecommendation(requestData);
       setRecommendation(response.data);
       setCurrentStep(3);
     } catch (error) {
@@ -76,11 +101,9 @@ const Recommendation = () => {
     'ISTJ', 'ISFJ', 'INFJ', 'INTJ', 'ISTP', 'ISFP', 'INFP', 'INTP',
     'ESTP', 'ESFP', 'ENFP', 'ENTP', 'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ'
   ];
-  const costOptions = ['5만 이하', '5~10만', '10~20만', '20만 이상'];
-  const purposeOptions = ['좋은 인상', '기분 전환', '자기만족', '데이트', '공식적인 자리', '특별한 날', '차별화된 스타일'];
-  const durabilityOptions = ['2~4', '4~6', '6이상', '상관없음'];
   const fashionstyleOptions = ['캐주얼', '미니멀/심플', '스트리트', '클래식/정장', '로맨틱/러블리', '빈티지', '스포티', '모던/시크', '자유로운 스타일(혼합형)'];
   const prefercolorOptions = ['흰색', '검정', '베이지/브라운', '파란색', '분홍/코랄', '빨간색', '초록/민트', '보라색', '노란색/오렌지'];
+  const purposeOptions = ['좋은 인상', '기분 전환', '자기만족', '데이트', '공식적인 자리', '특별한 날', '차별화된 스타일'];
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -130,20 +153,6 @@ const Recommendation = () => {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">가격대</label>
-        <select
-          value={formData.cost}
-          onChange={(e) => handleInputChange('cost', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        >
-          <option value="">가격대를 선택하세요</option>
-          <option value="">선택 안함</option>
-          {costOptions.map((cost) => (
-            <option key={cost} value={cost}>{cost}</option>
-          ))}
-        </select>
-      </div>
-      <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">추천 목적</label>
         <select
           value={formData.purpose}
@@ -154,20 +163,6 @@ const Recommendation = () => {
           <option value="">선택 안함</option>
           {purposeOptions.map((purpose) => (
             <option key={purpose} value={purpose}>{purpose}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">지속력</label>
-        <select
-          value={formData.durability}
-          onChange={(e) => handleInputChange('durability', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        >
-          <option value="">지속력을 선택하세요</option>
-          <option value="">선택 안함</option>
-          {durabilityOptions.map((d) => (
-            <option key={d} value={d}>{d}</option>
           ))}
         </select>
       </div>
@@ -298,33 +293,6 @@ const Recommendation = () => {
                     return icons[cat] || icons.other;
                   };
 
-                  const getCategoryName = (cat) => {
-                    const names = {
-                      floral: '플로럴',
-                      woody: '우디',
-                      fresh: '프레시',
-                      oriental: '오리엔탈',
-                      citrus: '시트러스',
-                      musk: '머스크',
-                      aquatic: '아쿠아틱',
-                      green: '그린',
-                      gourmand: '구르망',
-                      powdery: '파우더리',
-                      fruity: '프루티',
-                      aromatic: '아로마틱',
-                      chypre: '시프레',
-                      fougere: '푸제르',
-                      amber: '앰버',
-                      spicy: '스파이시',
-                      light_floral: '라이트 플로럴',
-                      white_floral: '화이트 플로럴',
-                      casual: '캐주얼',
-                      cozy: '코지',
-                      other: '기타'
-                    };
-                    return names[cat] || cat;
-                  };
-
                   return (
                     <span
                       key={index}
@@ -382,6 +350,25 @@ const Recommendation = () => {
               <p className="text-gray-600">{perfume.description}</p>
             </div>
           </div>
+
+          {recommendation.notes_recommendation && (
+            <div className="mt-8">
+              <h4 className="font-semibold text-gray-900 mb-2">노트별 추천 향조</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['top', 'middle', 'base'].map((note) => {
+                  const noteKor = note === 'top' ? '탑 노트' : note === 'middle' ? '미들 노트' : '베이스 노트';
+                  const rec = recommendation.notes_recommendation[note];
+                  return (
+                    <div key={note} className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-xl p-4 border border-primary-100 shadow-sm flex flex-col items-center">
+                      <span className="text-xs text-gray-500 mb-1">{noteKor}</span>
+                      <span className="text-lg font-bold text-primary-700 mb-1">{rec && rec.category ? getCategoryName(rec.category) : '-'}</span>
+                      <span className="text-sm text-gray-600">{rec && rec.confidence !== undefined ? `${Math.round(rec.confidence * 100)}% 매칭` : '-'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <button

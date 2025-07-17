@@ -110,7 +110,7 @@ def get_perfume_categories():
     """사용 가능한 향수 카테고리를 반환합니다."""
     return {
         "categories": [
-            "citrus", "floral", "woody", "oriental", "musk", "aquatic", "green", "gourmand", "powdery", "fruity", "aromatic", "chypre", "fougere", "amber", "spicy", "light floral", "white floral", "casual", "cozy"
+            "citrus", "floral", "woody", "oriental", "musk", "aquatic", "green", "gourmand", "powdery", "fruity", "aromatic", "chypre", "fougere", "amber", "spicy", "casual", "cozy"
         ],
         "price_ranges": [
             "budget", "mid-range", "luxury"

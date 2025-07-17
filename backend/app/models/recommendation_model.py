@@ -79,58 +79,43 @@ class PerfumeRecommendationModel:
     
     def prepare_enhanced_training_data(self, db_session=None) -> Tuple[pd.DataFrame, pd.Series, np.ndarray]:
         """향상된 훈련 데이터를 준비합니다 (엑셀 데이터 + 피드백 데이터)."""
-        # 엑셀 데이터 로드
         excel_df = self.load_excel_data()
         if excel_df is not None and not excel_df.empty:
-            excel_df['weight'] = 1.0  # 엑셀 데이터는 기본 가중치
+            excel_df['weight'] = 1.0
             excel_df['source'] = 'excel'
             print(f"엑셀 데이터 로드: {len(excel_df)}개")
         else:
-            # 엑셀 데이터가 없으면 빈 데이터프레임 반환
             print("엑셀 데이터가 없으므로 빈 데이터프레임 반환")
             return pd.DataFrame(), pd.Series(dtype=object), np.array([])
-        
-        # 피드백 데이터 (가능한 경우)
         feedback_df = pd.DataFrame()
         if db_session:
             try:
                 feedback_df = self.prepare_feedback_data(db_session)
             except Exception as e:
                 print(f"피드백 데이터 로드 실패: {e}")
-        
-        # 데이터 결합
         if not feedback_df.empty:
             combined_df = pd.concat([excel_df, feedback_df], ignore_index=True)
             print(f"훈련 데이터: 엑셀 {len(excel_df)}개, 피드백 {len(feedback_df)}개")
         else:
             combined_df = excel_df
             print(f"훈련 데이터: 엑셀 {len(excel_df)}개")
-        
-        # 특성과 타겟 분리
-        features = ['age', 'gender', 'personality', 'cost', 'purpose', 'durability', 'fashionstyle', 'prefercolor']
+        features = ['age', 'gender', 'mbti', 'purpose', 'fashionstyle', 'prefercolor']
         X = combined_df[features]
         y = combined_df['perfume_category']
         weights = combined_df['weight'].values
-        
         return X, y, weights
-    
+
     def load_excel_data(self) -> pd.DataFrame:
         """엑셀 데이터를 로드하고 전처리합니다."""
         try:
-            # 엑셀 파일 경로 설정
             current_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-            excel_filepath = os.path.join(project_root, "excel_data", "perfume.preferred_cleansed.xlsx")
-            
+            excel_filepath = os.path.join(project_root, "excel_data", "merged_pickple_remember.xlsx")
             if not os.path.exists(excel_filepath):
                 print(f"엑셀 파일을 찾을 수 없습니다: {excel_filepath}")
                 return None
-            
-            # 엑셀 데이터 로드
             df = pd.read_excel(excel_filepath)
             print(f"엑셀 데이터 로드 완료: {len(df)}행, {len(df.columns)}열")
-            
-            # 컬럼명 매핑
             column_mapping = {
                 'user_id': 'user_id',
                 'age_group': 'age_group',
@@ -138,14 +123,13 @@ class PerfumeRecommendationModel:
                 'style': 'fashionstyle',
                 'color': 'prefercolor',
                 'purpose': 'purpose',
-                'price_range': 'cost',
-                'durability': 'durability',
-                'mbti': 'personality',
-                'preferred_Note': 'perfume_category'
+                'mbti': 'mbti',
+                'preferred_Note': 'perfume_category',
+                'fashionstyle': 'fashionstyle',
+                'prefercolor': 'prefercolor',
+                'perfume_category': 'perfume_category'
             }
             df = df.rename(columns=column_mapping)
-            
-            # age_group을 정수형 age로 변환
             def age_group_to_int(age_group):
                 if isinstance(age_group, str) and age_group.endswith('s'):
                     try:
@@ -153,114 +137,42 @@ class PerfumeRecommendationModel:
                     except:
                         return None
                 return None
-            
             df['age'] = df['age_group'].apply(age_group_to_int)
-            
-            # 향수 카테고리를 멀티라벨로 변환
             df['perfume_category'] = df['perfume_category'].apply(self.simplify_perfume_category_list)
-            
-            # 필요한 컬럼만 선택
-            required_columns = ['age', 'gender', 'personality', 'cost', 'purpose', 'durability', 'fashionstyle', 'prefercolor', 'perfume_category']
+            required_columns = ['age', 'gender', 'mbti', 'purpose', 'fashionstyle', 'prefercolor', 'perfume_category']
             df = df[required_columns]
-            
-            # 결측값 처리
             df['age'] = pd.to_numeric(df['age'], errors='coerce')
-            df = df.dropna()
-            
-            # 1개 이상 라벨만 남김
-            df = df[df['perfume_category'].apply(lambda x: len(x) > 0)]
-            
+            # mbti 결측치는 'unknown'으로 채움
+            df['mbti'] = df['mbti'].fillna('unknown')
+            df['mbti'] = df['mbti'].replace('', 'unknown')
+            # mbti를 제외한 나머지 필드는 결측치 제거
+            non_mbti_cols = [col for col in required_columns if col != 'mbti']
+            df = df.dropna(subset=non_mbti_cols)
             print(f"전처리 완료: {len(df)}행")
             return df
-            
         except Exception as e:
             print(f"엑셀 데이터 로드 실패: {e}")
             return None
-    
-    def simplify_perfume_category_list(self, category_text):
-        """
-        복합 향수 카테고리를 리스트로 변환하고, 각 항목을 19개 표준 카테고리(영문)로 강력하게 매핑합니다.
-        괄호, 설명, 띄어쓰기, 오타, 유사 표현 등도 모두 표준 카테고리로 매핑. 매핑 실패시 'other'.
-        """
-        if pd.isna(category_text):
-            return []
-
-        # 표준 카테고리(영문)
-        std_categories = [
-            'citrus', 'floral', 'woody', 'oriental', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity',
-            'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light floral', 'white floral', 'casual', 'cozy'
-        ]
-        # 매핑표: 키워드/한글/설명/유사표현 → 표준 카테고리
-        mapping = {
-            # citrus
-            '시트러스': 'citrus', '레몬': 'citrus', '자몽': 'citrus', '상큼': 'citrus', 'citrus': 'citrus',
-            # floral
-            '플로럴': 'floral', '꽃': 'floral', '장미': 'floral', '백합': 'floral', 'rose': 'floral', 'lily': 'floral', 'floral': 'floral',
-            # woody
-            '우디': 'woody', '나무': 'woody', '숲': 'woody', 'cedar': 'woody', 'wood': 'woody', 'woody': 'woody',
-            # oriental
-            '오리엔탈': 'oriental', '신비': 'oriental', 'oriental': 'oriental',
-            # musk
-            '머스크': 'musk', '포근': 'musk', '따뜻': 'musk', 'musk': 'musk',
-            # aquatic
-            '아쿠아틱': 'aquatic', '바다': 'aquatic', '비누': 'aquatic', 'aquatic': 'aquatic',
-            # green
-            '그린': 'green', '풀': 'green', '허브': 'green', '자연': 'green', 'green': 'green',
-            # gourmand
-            '구르망': 'gourmand', '바닐라': 'gourmand', '초콜릿': 'gourmand', '달콤': 'gourmand', 'gourmand': 'gourmand',
-            # powdery
-            '파우더리': 'powdery', '파우더': 'powdery', '부드럽': 'powdery', 'powdery': 'powdery',
-            # fruity
-            '프루티': 'fruity', '과일': 'fruity', '사과': 'fruity', '복숭아': 'fruity', '베리': 'fruity', 'fruity': 'fruity',
-            # aromatic
-            '아로마틱': 'aromatic', '라벤더': 'aromatic', '로즈마리': 'aromatic', '바질': 'aromatic', 'aromatic': 'aromatic',
-            # chypre
-            '시프레': 'chypre', '오크모스': 'chypre', '베르가못': 'chypre', '패츌리': 'chypre', 'chypre': 'chypre',
-            # fougere
-            '푸제르': 'fougere', 'ferny': 'fougere', 'fougere': 'fougere',
-            # amber
-            '앰버': 'amber', 'amber': 'amber',
-            # spicy
-            '스파이시': 'spicy', '계피': 'spicy', '정향': 'spicy', '후추': 'spicy', 'spicy': 'spicy',
-            # light floral
-            '라이트 플로럴': 'light floral', '작은 꽃': 'light floral', '미모사': 'light floral', '은방울꽃': 'light floral', 'light floral': 'light floral',
-            # white floral
-            '화이트 플로럴': 'white floral', '튜베로즈': 'white floral', '가드니아': 'white floral', '오렌지 블라썸': 'white floral', 'white floral': 'white floral',
-            # casual
-            '캐쥬얼': 'casual', '린넨': 'casual', '면': 'casual', '일상': 'casual', 'casual': 'casual',
-            # cozy
-            '코지': 'cozy', '커피': 'cozy', '우드': 'cozy', '포근하고 푹신': 'cozy', 'cozy': 'cozy',
+    def preprocess_input(self, input_dict):
+        gender_map = {'여': 'F', '여성': 'F', '남': 'M', '남성': 'M', 'F': 'F', 'M': 'M', 'female': 'F', 'male': 'M', 'unisex': 'unisex'}
+        purpose_map = {
+            '자기만족': 'self_satisfaction', 'good_impression': 'good_impression', 'special_event': 'special_event',
+            'date_or_social': 'date_or_social', 'formal_occasion': 'formal_occasion'
         }
-        # 괄호/설명/공백/특수문자 제거 및 소문자화
-        def clean_label(label):
-            label = str(label)
-            label = re.sub(r'\([^)]*\)', '', label)  # 괄호 및 괄호 안 설명 제거
-            label = re.sub(r'[^\w가-힣 ]', '', label)  # 특수문자 제거
-            label = label.strip().lower()
-            return label
-
-        # 쉼표/슬래시/공백 등으로 분리
-        raw_cats = re.split(r'[,/]|\n|\t', str(category_text))
-        result = set()
-        for raw in raw_cats:
-            cleaned = clean_label(raw)
-            found = None
-            for key, std in mapping.items():
-                if key in cleaned:
-                    found = std
-                    break
-            if found:
-                result.add(found)
-            else:
-                # 표준 카테고리명 직접 포함시 그대로 사용
-                for std in std_categories:
-                    if std in cleaned:
-                        result.add(std)
-                        break
-                else:
-                    if cleaned:
-                        result.add('other')
-        return list(result)
+        fashionstyle_map = {
+            '캐주얼': 'casual', 'casual': 'casual', 'minimal': 'minimal', 'simple': 'simple',
+            'street': 'street', 'modern': 'modern', 'chic': 'chic', 'sports': 'sports'
+        }
+        def normalize_color(val):
+            if not isinstance(val, str):
+                return 'unknown'
+            return ','.join([c.strip().lower() for c in val.split(',')])
+        norm = dict(input_dict)
+        norm['gender'] = gender_map.get(str(norm.get('gender', '')).strip(), 'F')
+        norm['purpose'] = purpose_map.get(str(norm.get('purpose', '')).strip(), 'good_impression')
+        norm['fashionstyle'] = fashionstyle_map.get(str(norm.get('fashionstyle', '')).strip(), 'casual')
+        norm['prefercolor'] = normalize_color(norm.get('prefercolor', 'unknown'))
+        return norm
     
     def _calculate_match_score(self, perfume: Dict, age: int, gender: str, 
                               personality: str, season: str) -> float:
@@ -293,49 +205,6 @@ class PerfumeRecommendationModel:
         
         return min(score, 1.0)
     
-    def preprocess_input(self, input_dict):
-        """
-        입력값의 라벨을 일관성 있게 정규화(한글/영문/표기 변형/unknown 처리)
-        """
-        # gender
-        gender_map = {'여': 'F', '여성': 'F', '남': 'M', '남성': 'M', 'F': 'F', 'M': 'M', 'female': 'F', 'male': 'M', 'unisex': 'unisex'}
-        # cost 예시 (실제 데이터에 맞게 확장 필요)
-        cost_map = {
-            '5만 이하': 'under_50k', '50k_to_100k': '50k_to_100k', '100k_to_200k': '100k_to_200k',
-            '200k 이상': 'over_200k', 'mid-range': '50k_to_100k', 'budget': 'under_50k', 'luxury': 'over_200k'
-        }
-        # purpose 예시
-        purpose_map = {
-            '자기만족': 'self_satisfaction', 'good_impression': 'good_impression', 'special_event': 'special_event',
-            'date_or_social': 'date_or_social', 'formal_occasion': 'formal_occasion'
-        }
-        # durability 예시
-        durability_map = {
-            '상관없음': 'any', '2_4_hours': '2_4_hours', '4_6_hours': '4_6_hours', 'over_6_hours': 'over_6_hours'
-        }
-        # fashionstyle 예시
-        fashionstyle_map = {
-            '캐주얼': 'casual', 'casual': 'casual', 'minimal': 'minimal', 'simple': 'simple',
-            'street': 'street', 'modern': 'modern', 'chic': 'chic', 'sports': 'sports'
-        }
-        # prefercolor 예시 (공백/쉼표 제거)
-        def normalize_color(val):
-            if not isinstance(val, str):
-                return 'unknown'
-            return ','.join([c.strip().lower() for c in val.split(',')])
-
-        # personality (그대로 사용)
-        # age (그대로 사용)
-
-        norm = dict(input_dict)
-        norm['gender'] = gender_map.get(str(norm.get('gender', '')).strip(), 'F')
-        norm['cost'] = cost_map.get(str(norm.get('cost', '')).strip(), '50k_to_100k')
-        norm['purpose'] = purpose_map.get(str(norm.get('purpose', '')).strip(), 'good_impression')
-        norm['durability'] = durability_map.get(str(norm.get('durability', '')).strip(), 'any')
-        norm['fashionstyle'] = fashionstyle_map.get(str(norm.get('fashionstyle', '')).strip(), 'casual')
-        norm['prefercolor'] = normalize_color(norm.get('prefercolor', 'unknown'))
-        return norm
-
     def _expand_multilabel_columns(self, df, multilabel_cols, prefix_sep='_'):
         """
         멀티라벨 컬럼(콤마로 구분된 값)을 개별 컬럼(One-hot)으로 확장
@@ -483,7 +352,7 @@ class PerfumeRecommendationModel:
         self.train(db_session, force_retrain=True)
         print("피드백 기반 재훈련 완료!")
     
-    def predict_categories(self, age: int, gender: str, personality: str, cost: str, purpose: str, durability: str, fashionstyle: str, prefercolor: str) -> tuple:
+    def predict_categories(self, age: int, gender: str, mbti: str, purpose: str, fashionstyle: str, prefercolor: str) -> tuple:
         """사용자 특성에 따른 향수 카테고리들을 예측합니다."""
         if not self.is_trained:
             raise ValueError("모델이 훈련되지 않았습니다. 먼저 train()을 호출하세요.")
@@ -491,14 +360,14 @@ class PerfumeRecommendationModel:
         input_dict = {
             'age': age,
             'gender': gender,
-            'personality': personality,
-            'cost': cost,
+            'mbti': mbti,
             'purpose': purpose,
-            'durability': durability,
             'fashionstyle': fashionstyle,
             'prefercolor': prefercolor
         }
+        print(f"[DEBUG] raw input_dict: {input_dict}")
         input_dict = self.preprocess_input(input_dict)
+        print(f"[DEBUG] preprocessed input_dict: {input_dict}")
         input_data = pd.DataFrame([input_dict])
         # 범주형 변수 인코딩 (LabelEncoder)
         for column in input_data.select_dtypes(include=['object']).columns:
@@ -517,16 +386,15 @@ class PerfumeRecommendationModel:
         y_pred_bin = self.model.predict(input_scaled)
         # 바이너리 결과를 라벨 리스트로 변환
         predicted_categories = self.mlb.inverse_transform(y_pred_bin)[0]
-        # 신뢰도 계산 (예측된 라벨들의 평균 확률)
+        # 모든 카테고리에 대해 confidence 반환
         y_pred_proba = self.model.predict_proba(input_scaled)
-        confidence = np.mean([np.max(proba) for proba in y_pred_proba])
-        return predicted_categories, confidence
+        confidences = {self.mlb.classes_[i]: y_pred_proba[0][i] for i in range(len(self.mlb.classes_))}
+        return predicted_categories, confidences
     
     def get_recommendation_reason(self, predicted_categories: List[str], age: int, 
-                                 gender: str, personality: str, season: str) -> str:
+                                 gender: str, mbti: str, season: str) -> str:
         """추천 이유를 생성합니다."""
         reasons = []
-        
         # 나이 기반 이유
         if age < 25:
             reasons.append("젊은 층에게 인기 있는")
@@ -534,7 +402,6 @@ class PerfumeRecommendationModel:
             reasons.append("성인층에게 선호되는")
         else:
             reasons.append("성숙한 분위기의")
-        
         # 성별 기반 이유
         if gender == "남":
             reasons.append("남성에게 적합한")
@@ -542,7 +409,6 @@ class PerfumeRecommendationModel:
             reasons.append("여성에게 어울리는")
         else:
             reasons.append("모든 성별에게 매력적인")
-        
         # 카테고리 기반 이유
         category_reasons = {
             "citrus": "상큼하고 경쾌한",
@@ -561,15 +427,12 @@ class PerfumeRecommendationModel:
             "amber": "따뜻하고 달콤한",
             "spicy": "강렬하고 매혹적인"
         }
-        
         for category in predicted_categories:
             if category in category_reasons:
                 reasons.append(category_reasons[category])
                 break
-        
         if not reasons:
             reasons.append("개성 있는")
-        
         return " ".join(reasons) + " 향수입니다."
     
     def save_model(self):
@@ -611,3 +474,92 @@ class PerfumeRecommendationModel:
             print(f"모델 로드 실패: {e}")
             print("새로 훈련합니다.")
             self.train() 
+
+    def simplify_perfume_category_list(self, category_text):
+        """
+        복합 향수 카테고리를 리스트로 변환하고, 각 항목을 19개 표준 카테고리(영문)로 강력하게 매핑합니다.
+        괄호, 설명, 띄어쓰기, 오타, 유사 표현 등도 모두 표준 카테고리로 매핑. 매핑 실패시 'other'.
+        플로럴 계열(white floral, light floral, floral)은 모두 'floral'로 통일.
+        """
+        import re
+        if pd.isna(category_text):
+            return []
+        std_categories = [
+            'citrus', 'floral', 'woody', 'oriental', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity',
+            'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light floral', 'white floral', 'casual', 'cozy'
+        ]
+        mapping = {
+            '시트러스': 'citrus', '레몬': 'citrus', '자몽': 'citrus', '상큼': 'citrus', 'citrus': 'citrus',
+            '플로럴': 'floral', '꽃': 'floral', '장미': 'floral', '백합': 'floral', 'rose': 'floral', 'lily': 'floral', 'floral': 'floral',
+            '우디': 'woody', '나무': 'woody', '숲': 'woody', 'cedar': 'woody', 'wood': 'woody', 'woody': 'woody',
+            '오리엔탈': 'oriental', '신비': 'oriental', 'oriental': 'oriental',
+            '머스크': 'musk', '포근': 'musk', '따뜻': 'musk', 'musk': 'musk',
+            '아쿠아틱': 'aquatic', '바다': 'aquatic', '비누': 'aquatic', 'aquatic': 'aquatic',
+            '그린': 'green', '풀': 'green', '허브': 'green', '자연': 'green', 'green': 'green',
+            '구르망': 'gourmand', '바닐라': 'gourmand', '초콜릿': 'gourmand', '달콤': 'gourmand', 'gourmand': 'gourmand',
+            '파우더리': 'powdery', '파우더': 'powdery', '부드럽': 'powdery', 'powdery': 'powdery',
+            '프루티': 'fruity', '과일': 'fruity', '사과': 'fruity', '복숭아': 'fruity', '베리': 'fruity', 'fruity': 'fruity',
+            '아로마틱': 'aromatic', '라벤더': 'aromatic', 'aromatic': 'aromatic',
+            '시프레': 'chypre', '오크모스': 'chypre', '베르가못': 'chypre', '패츌리': 'chypre', 'chypre': 'chypre',
+            '푸제르': 'fougere', 'ferny': 'fougere', 'fougere': 'fougere',
+            '앰버': 'amber', 'amber': 'amber',
+            '스파이시': 'spicy', '계피': 'spicy', '정향': 'spicy', '후추': 'spicy', 'spicy': 'spicy',
+            '라이트 플로럴': 'light floral', '작은 꽃': 'light floral', '미모사': 'light floral', '은방울꽃': 'light floral', 'light floral': 'light floral',
+            '화이트 플로럴': 'white floral', '튜베로즈': 'white floral', '가드니아': 'white floral', '오렌지 블라썸': 'white floral', 'white floral': 'white floral',
+            '캐쥬얼': 'casual', '린넨': 'casual', '면': 'casual', '일상': 'casual', 'casual': 'casual',
+            '코지': 'cozy', '커피': 'cozy', '우드': 'cozy', '포근하고 푹신': 'cozy', 'cozy': 'cozy',
+        }
+        def clean_label(label):
+            label = str(label)
+            label = re.sub(r'\([^)]*\)', '', label)
+            label = re.sub(r'[^\w가-힣 ]', '', label)
+            label = label.strip().lower()
+            return label
+        raw_cats = re.split(r'[,/]|\n|\t', str(category_text))
+        result = set()
+        for raw in raw_cats:
+            cleaned = clean_label(raw)
+            found = None
+            for key, std in mapping.items():
+                if key in cleaned:
+                    found = std
+                    break
+            if found:
+                result.add(found)
+            else:
+                for std in std_categories:
+                    if std in cleaned:
+                        result.add(std)
+                        break
+                else:
+                    if cleaned:
+                        result.add('other')
+        # 플로럴 계열 통일
+        if any(x in result for x in ['floral', 'white floral', 'light floral']):
+            result.discard('white floral')
+            result.discard('light floral')
+            result.add('floral')
+        return list(result) 
+
+    NOTE_CATEGORY_MAP = {
+        "top": ["citrus", "fruity", "aquatic", "green"],
+        "middle": ["floral", "powdery", "spicy", "aromatic", "fougere"],
+        "base": ["amber", "oriental", "chypre", "gourmand", "cozy", "musk", "woody"]
+    }
+
+    def recommend_notes_by_confidence(self, confidence_dict):
+        """
+        confidence_dict: {카테고리명: 확률, ...}
+        각 노트별로 NOTE_CATEGORY_MAP에 해당하는 카테고리 중 confidence가 가장 높은 향조를 추천
+        """
+        result = {}
+        for note, categories in self.NOTE_CATEGORY_MAP.items():
+            best_cat = None
+            best_conf = -1
+            for cat in categories:
+                conf = confidence_dict.get(cat, 0)
+                if conf > best_conf:
+                    best_cat = cat
+                    best_conf = conf
+            result[note] = {"category": best_cat, "confidence": best_conf}
+        return result 

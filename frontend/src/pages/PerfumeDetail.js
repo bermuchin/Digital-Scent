@@ -30,6 +30,12 @@ const PerfumeDetail = () => {
     }
   };
 
+  // 카테고리 통일 함수
+  const unifyFloral = (category) => {
+    if (["light floral", "white floral", "light_floral", "white_floral"].includes(category)) return "floral";
+    return category;
+  };
+
   const getCategoryColor = (category) => {
     const colors = {
       floral: 'bg-pink-100 text-pink-800',
@@ -172,7 +178,7 @@ const PerfumeDetail = () => {
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(perfume.category)}`}>
                   <span className="mr-1">{getCategoryIcon(perfume.category)}</span>
-                  {perfume.category === 'floral' && '플로럴'}
+                  {unifyFloral(perfume.category) === 'floral' && '플로럴'}
                   {perfume.category === 'woody' && '우디'}
                   {perfume.category === 'fresh' && '프레시'}
                   {perfume.category === 'oriental' && '오리엔탈'}

@@ -24,11 +24,9 @@ def test_model():
         # 예측 테스트 (다중 라벨 분류)
         predicted_categories, confidence = model.predict_categories(
             age=25,
-            gender='F',  # female
-            personality='introvert',
-            cost='medium',
+            gender='F',
+            mbti='INTJ',
             purpose='daily',
-            durability='medium',
             fashionstyle='casual',
             prefercolor='blue'
         )

@@ -50,10 +50,8 @@ class PerfumeDetail(Perfume):
 class RecommendationRequest(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
-    personality: Optional[str] = None
-    cost: Optional[str] = None
+    mbti: Optional[str] = None
     purpose: Optional[str] = None
-    durability: Optional[str] = None
     fashionstyle: Optional[str] = None
     prefercolor: Optional[str] = None
 
@@ -63,8 +61,10 @@ class RecommendationResponse(BaseModel):
     perfume: PerfumeDetail
     predicted_categories: List[str]  # 예측된 향수 카테고리들
     confidence_score: float
+    confidence_dict: Optional[dict] = None
     reason: str
     match_factors: List[str]
+    notes_recommendation: Optional[dict] = None  # top/middle/base별 추천 향조와 신뢰도
 
 # 추천 피드백 스키마
 class RecommendationFeedback(BaseModel):

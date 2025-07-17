@@ -25,14 +25,17 @@ def force_retrain():
         predicted_categories, confidence = model.predict_categories(
             age=25,
             gender='여',
-            personality='ISTJ',
-            cost='5만 이하',
+            mbti='ISTJ',
             purpose='자기만족',
-            durability='상관없음',
             fashionstyle='캐주얼',
             prefercolor='흰색'
         )
-        print(f"✅ 예측 테스트 성공: {predicted_categories}, 신뢰도: {confidence:.3f}")
+        print(f"✅ 예측 테스트 성공: {predicted_categories}")
+        if isinstance(confidence, dict):
+            for label, conf in confidence.items():
+                print(f"  - {label}: {conf:.3f}")
+        else:
+            print(f"신뢰도: {confidence:.3f}")
         print("[DEBUG] 예측 테스트 완료!")
         
         return True

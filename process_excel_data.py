@@ -22,12 +22,10 @@ from backend.app.models.recommendation_model import PerfumeRecommendationModel
 
 def load_excel_data():
     """엑셀 데이터를 로드합니다."""
-    file_path = "excel_data/perfume.preferred_cleansed.xlsx"
-    
+    file_path = "excel_data/merged_pickple_remember.xlsx"
     print("=" * 60)
     print("엑셀 데이터 로드")
     print("=" * 60)
-    
     try:
         # 엑셀 파일 읽기
         df = pd.read_excel(file_path)
@@ -37,9 +35,7 @@ def load_excel_data():
         print(df.head())
         print(f"\n데이터 정보:")
         print(df.info())
-        
         return df
-        
     except Exception as e:
         print(f"엑셀 파일 로드 실패: {e}")
         return None
@@ -86,13 +82,11 @@ def preprocess_data_multilabel(df):
         'user_id': 'user_id',
         'age_group': 'age_group',
         'gender': 'gender',
-        'style': 'fashionstyle',
-        'color': 'prefercolor',
-        'purpose': 'purpose',
-        'price_range': 'cost',
-        'durability': 'durability',
         'mbti': 'personality',
-        'preferred_Note': 'perfume_category'
+        'purpose': 'purpose',
+        'fashionstyle': 'fashionstyle',
+        'prefercolor': 'prefercolor',
+        'perfume_category': 'perfume_category'
     }
     df = df.rename(columns=column_mapping)
     def age_group_to_int(age_group):
@@ -105,7 +99,7 @@ def preprocess_data_multilabel(df):
     df['age'] = df['age_group'].apply(age_group_to_int)
     # 멀티라벨 변환
     df['perfume_category'] = df['perfume_category'].apply(simplify_perfume_category_list)
-    required_columns = ['age', 'gender', 'personality', 'cost', 'purpose', 'durability', 'fashionstyle', 'prefercolor', 'perfume_category']
+    required_columns = ['age', 'gender', 'personality', 'purpose', 'fashionstyle', 'prefercolor', 'perfume_category']
     df = df[required_columns]
     df['age'] = pd.to_numeric(df['age'], errors='coerce')
     df = df.dropna()
@@ -114,7 +108,7 @@ def preprocess_data_multilabel(df):
     return df
 
 def train_multilabel_model(df):
-    features = ['age', 'gender', 'personality', 'cost', 'purpose', 'durability', 'fashionstyle', 'prefercolor']
+    features = ['age', 'gender', 'personality', 'purpose', 'fashionstyle', 'prefercolor']
     X = df[features]
     y = df['perfume_category']
     # 범주형 인코딩
