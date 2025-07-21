@@ -30,12 +30,14 @@ def force_retrain():
             fashionstyle='캐주얼',
             prefercolor='흰색'
         )
-        print(f"✅ 예측 테스트 성공: {predicted_categories}")
-        if isinstance(confidence, dict):
-            for label, conf in confidence.items():
-                print(f"  - {label}: {conf:.3f}")
-        else:
-            print(f"신뢰도: {confidence:.3f}")
+        # 탑/미들/베이스 노트별 추천
+        notes = model.recommend_notes_by_confidence(confidence)
+        print(f"✅ 예측 테스트 성공: (탑: {notes['top']['category']}, 미들: {notes['middle']['category']}, 베이스: {notes['base']['category']})")
+        print("  [상세 신뢰도]")
+        for note in ['top', 'middle', 'base']:
+            cat = notes[note]['category']
+            conf = notes[note]['confidence']
+            print(f"    - {note.capitalize()}({cat}): {conf:.3f}")
         print("[DEBUG] 예측 테스트 완료!")
         
         return True
