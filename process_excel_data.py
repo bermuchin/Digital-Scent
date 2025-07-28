@@ -61,9 +61,7 @@ def simplify_perfume_category_list(category_text):
         '프루티': 'fruity',
         '구르망': 'gourmand',
         '캐쥬얼': 'casual',
-        '코지': 'cozy',
-        '라이트 플로럴': 'light_floral',
-        '화이트 플로럴': 'white_floral'
+        '코지': 'cozy
     }
     categories = [cat.strip() for cat in str(category_text).split(',')]
     result = []

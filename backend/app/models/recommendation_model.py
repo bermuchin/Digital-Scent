@@ -1,3 +1,6 @@
+import sklearn
+sklearn.set_config(enable_metadata_routing=True)
+
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -11,9 +14,12 @@ from typing import List, Dict, Tuple
 from datetime import datetime, timedelta
 import re
 
+from sklearn.multioutput import ClassifierChain
+
 class PerfumeRecommendationModel:
     def __init__(self):
-        self.model = OneVsRestClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+        # 모델은 train() 메서드에서 GridSearchCV를 통해 최적화된 후 최종적으로 ClassifierChain으로 정의됩니다.
+        self.model = ClassifierChain(RandomForestClassifier(n_estimators=100, random_state=42))
         self.label_encoders = {}
         self.scaler = StandardScaler()
         self.mlb = MultiLabelBinarizer()  # 멀티라벨 바이너리 인코더
@@ -163,10 +169,17 @@ class PerfumeRecommendationModel:
             '캐주얼': 'casual', 'casual': 'casual', 'minimal': 'minimal', 'simple': 'simple',
             'street': 'street', 'modern': 'modern', 'chic': 'chic', 'sports': 'sports'
         }
+        color_map = {
+        '흰색': 'white', '검정': 'black', '파랑': 'blue', '노랑': 'yellow', '초록': 'green',
+        '분홍': 'pink', '보라': 'purple', '빨강': 'red', '주황': 'orange', '민트': 'mint',
+        '베이지': 'beige', '갈색': 'brown', '그레이': 'gray', '코랄': 'coral'
+    }
         def normalize_color(val):
             if not isinstance(val, str):
                 return 'unknown'
-            return ','.join([c.strip().lower() for c in val.split(',')])
+            colors = [color_map.get(c.strip(), c.strip().lower()) for c in val.split(',')]
+            return ','.join(colors)
+            
         norm = dict(input_dict)
         norm['gender'] = gender_map.get(str(norm.get('gender', '')).strip(), 'F')
         norm['purpose'] = purpose_map.get(str(norm.get('purpose', '')).strip(), 'good_impression')
@@ -205,133 +218,103 @@ class PerfumeRecommendationModel:
         
         return min(score, 1.0)
     
-    def _expand_multilabel_columns(self, df, multilabel_cols, prefix_sep='_'):
-        """
-        멀티라벨 컬럼(콤마로 구분된 값)을 개별 컬럼(One-hot)으로 확장
-        예: 'purpose' 컬럼에 'a,b' → purpose_a=1, purpose_b=1
-        """
-        for col in multilabel_cols:
-            # 모든 유니크 값 추출
-            all_labels = set()
-            df[col] = df[col].fillna('')
-            for items in df[col]:
-                all_labels.update([i.strip() for i in str(items).split(',') if i.strip()])
-            for label in sorted(all_labels):
-                new_col = f"{col}{prefix_sep}{label}"
-                df[new_col] = df[col].apply(lambda x: int(label in [i.strip() for i in str(x).split(',')]))
-        df = df.drop(columns=multilabel_cols)
-        return df
-
     def train(self, db_session=None, force_retrain=False):
         """모델을 훈련합니다."""
         # 재훈련 필요성 확인
         if not force_retrain and self.should_retrain():
             print("재훈련이 필요하지 않습니다.")
             return
-        
         X, y, weights = self.prepare_enhanced_training_data(db_session)
         print("[DEBUG] X shape:", X.shape)
         print("[DEBUG] X columns:", X.columns.tolist())
         print("[DEBUG] y shape:", y.shape)
         print("[DEBUG] X head:\n", X.head())
 
-        # 범주형 변수 인코딩 (LabelEncoder)
-        self.label_encoders = {}
-        for column in X.select_dtypes(include=['object']).columns:
-            le = LabelEncoder()
-            X[column] = X[column].fillna('')
-            X[column] = le.fit_transform(X[column])
-            self.label_encoders[column] = le
-        self.onehot_columns = None  # 사용하지 않음
+        # --- 피처 엔지니어링 및 전처리 (다중 선택 피처 처리 포함) ---
+        X_processed = X.copy()
 
-        # 수치형 변수 스케일링
-        X_scaled = self.scaler.fit_transform(X)
+        # 1. 수치형 변수 스케일링
+        numeric_features = X.select_dtypes(include=np.number).columns.tolist()
+        if numeric_features:
+            self.scaler.fit(X_processed[numeric_features])
+            X_processed[numeric_features] = self.scaler.transform(X_processed[numeric_features])
+
+        # 2. 다중 선택 가능 피처 처리 (Multi-label Binarization)
+        multilabel_cols = ['purpose', 'prefercolor', 'fashionstyle']
+        for col in multilabel_cols:
+            # 콤마로 구분된 문자열을 개별 컬럼으로 분리 (예: 'casual,street' -> casual=1, street=1)
+            dummies = X_processed[col].str.get_dummies(sep=',')
+            # 컬럼 이름에 접두사 추가 (예: fashionstyle_casual)
+            dummies.columns = [f"{col}_{c.strip()}" for c in dummies.columns]
+            X_processed = pd.concat([X_processed, dummies], axis=1)
+        
+        # 3. 단일 선택 피처 처리 (One-Hot Encoding) 및 원본 컬럼 삭제
+        single_label_cols = ['gender', 'mbti']
+        X_processed = pd.get_dummies(X_processed, columns=single_label_cols, dummy_na=False)
+        X_processed = X_processed.drop(columns=multilabel_cols)
+
+        # 예측 시 사용하기 위해 최종 컬럼 순서 저장
+        self.onehot_columns = X_processed.columns.tolist()
+        self.label_encoders = {}
 
         # 멀티라벨 바이너리 인코딩
         y_bin = self.mlb.fit_transform(y)
-
         # 훈련/테스트 분할 (가중치 고려)
-        from sklearn.model_selection import train_test_split
-        X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
-            X_scaled, y_bin, weights, test_size=0.2, random_state=42, stratify=None
-        )
-        
-        # 멀티라벨 분류에 적합한 모델 설정
+        # 다중 라벨 데이터에서는 일반적인 train_test_split보다 IterativeStratification이 더 안정적인 분할을 보장합니다.
+        from skmultilearn.model_selection import IterativeStratification
+
+        # 80/20 분할을 위해 n_splits=5로 설정 (1/5이 테스트 세트가 됨)
+        stratifier = IterativeStratification(n_splits=5, order=1)
+        train_indices, test_indices = next(stratifier.split(X_processed, y_bin))
+
+        X_train, X_test = X_processed.astype(float).iloc[train_indices], X_processed.astype(float).iloc[test_indices]
+        y_train, y_test = y_bin[train_indices], y_bin[test_indices]
+        w_train, w_test = weights[train_indices], weights[test_indices]
+        # RandomForest 파라미터 튜닝 (GridSearchCV)
         from sklearn.ensemble import RandomForestClassifier
-        base_classifier = RandomForestClassifier(
-            n_estimators=200,  # 트리 개수 증가
-            max_depth=10,      # 깊이 제한으로 과적합 방지
-            min_samples_split=5,
-            min_samples_leaf=2,
-            class_weight='balanced',  # 클래스 불균형 처리
-            random_state=42
-        )
-        self.model = OneVsRestClassifier(base_classifier)
-        
-        # 피드백 데이터가 있을 때만 가중치 적용
-        if np.any(weights != 1.0):
-            print(f"[DEBUG] 피드백 데이터(가중치!=1.0)가 있으므로 가중치 적용 훈련")
-            print(f"[DEBUG] w_train type: {type(w_train)}, shape: {w_train.shape}, dtype: {w_train.dtype}")
-            print(f"[DEBUG] w_train min: {w_train.min()}, max: {w_train.max()}, mean: {w_train.mean():.3f}")
-            try:
-                self.model.fit(X_train, y_train, sample_weight=w_train)
-                print("[DEBUG] 가중치 적용하여 모델 훈련 성공!")
-            except ValueError as e:
-                print(f"[DEBUG] sample_weight 적용 실패: {e}")
-                print("가중치 없이 모델 훈련")
-                self.model.fit(X_train, y_train)
-        else:
-            print(f"[DEBUG] 피드백 데이터가 없으므로 가중치 없이 훈련")
-            print(f"[DEBUG] X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
-            self.model.fit(X_train, y_train)
-        
+        from sklearn.model_selection import GridSearchCV
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [8, 10, 12],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2],
+            'class_weight': ['balanced']
+        }
+        base_rf = RandomForestClassifier(random_state=42)
+        base_rf.set_fit_request(sample_weight=True)  # sample_weight metadata routing 명시
+        grid_search = GridSearchCV(base_rf, param_grid, cv=3, scoring='f1_micro', n_jobs=-1)
+        try:
+            grid_search.fit(X_train, y_train, sample_weight=w_train)
+        except Exception as e:
+            print(f"GridSearchCV에서 sample_weight 적용 실패: {e}, 가중치 없이 튜닝")
+            grid_search.fit(X_train, y_train)
+        best_rf = grid_search.best_estimator_
+        best_rf.set_fit_request(sample_weight=True)  # 최적 모델에도 metadata routing 명시
+        print(f"[DEBUG] GridSearch 최적 파라미터: {grid_search.best_params_}")
+        # 기존: self.model = OneVsRestClassifier(best_rf)
+        # 변경: ClassifierChain 적용
+        from sklearn.multioutput import ClassifierChain
+        self.model = ClassifierChain(best_rf)
+        self.model.fit(X_train, y_train, sample_weight=w_train)
         # 모델 평가 - 멀티라벨 분류에 적합한 지표들
         y_pred = self.model.predict(X_test)
-        
-        # 1. Exact Match Accuracy (기존 accuracy)
-        from sklearn.metrics import accuracy_score
+        from sklearn.metrics import accuracy_score, hamming_loss, f1_score, jaccard_score, classification_report, multilabel_confusion_matrix
         exact_accuracy = accuracy_score(y_test, y_pred)
         print(f"Exact Match Accuracy: {exact_accuracy:.3f}")
-        
-        # 2. Hamming Loss (멀티라벨 분류에 적합)
-        from sklearn.metrics import hamming_loss
         hamming_loss_score = hamming_loss(y_test, y_pred)
         print(f"Hamming Loss: {hamming_loss_score:.3f} (낮을수록 좋음)")
-        
-        # 3. Micro-averaged F1 Score
-        from sklearn.metrics import f1_score
         micro_f1 = f1_score(y_test, y_pred, average='micro', zero_division=0)
         print(f"Micro-averaged F1 Score: {micro_f1:.3f}")
-        
-        # 4. Macro-averaged F1 Score
         macro_f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
         print(f"Macro-averaged F1 Score: {macro_f1:.3f}")
-        
-        # 5. Subset Accuracy (Exact Match)
-        from sklearn.metrics import jaccard_score
         subset_accuracy = jaccard_score(y_test, y_pred, average='samples', zero_division=0)
         print(f"Subset Accuracy (Jaccard): {subset_accuracy:.3f}")
-
-        # Classification Report
         print("\nClassification Report:")
         print(classification_report(y_test, y_pred, target_names=self.mlb.classes_, zero_division=0))
-
-        # Multilabel Confusion Matrix
         print("\nMultilabel Confusion Matrix:")
         print(multilabel_confusion_matrix(y_test, y_pred))
-        
-        # 각 라벨별 예측 성능 분석
-        print("\n라벨별 예측 성능 분석:")
-        for i, label in enumerate(self.mlb.classes_):
-            true_count = np.sum(y_test[:, i])
-            pred_count = np.sum(y_pred[:, i])
-            correct_count = np.sum((y_test[:, i] == 1) & (y_pred[:, i] == 1))
-            print(f"{label:15s}: 실제 {true_count:3d}개, 예측 {pred_count:3d}개, 정확 {correct_count:3d}개")
-        
         self.is_trained = True
         self.last_retrain_date = datetime.utcnow()
-        
-        # 모델 저장
         self.save_model()
     
     def should_retrain(self) -> bool:
@@ -368,26 +351,44 @@ class PerfumeRecommendationModel:
         print(f"[DEBUG] raw input_dict: {input_dict}")
         input_dict = self.preprocess_input(input_dict)
         print(f"[DEBUG] preprocessed input_dict: {input_dict}")
-        input_data = pd.DataFrame([input_dict])
-        # 범주형 변수 인코딩 (LabelEncoder)
-        for column in input_data.select_dtypes(include=['object']).columns:
-            if column in self.label_encoders:
-                le = self.label_encoders[column]
-                values = input_data[column].values
-                unknown_mask = ~input_data[column].isin(le.classes_)
-                if unknown_mask.any():
-                    replacement_label = le.classes_[0]
-                    input_data.loc[unknown_mask, column] = replacement_label
-                    print(f"Warning: Unknown label '{values[unknown_mask][0]}' in column '{column}' replaced with '{replacement_label}'")
-                input_data[column] = le.transform(input_data[column])
-        # 스케일링
-        input_scaled = self.scaler.transform(input_data)
+        
+        # --- 훈련 시점과 동일한 구조의 입력 데이터 생성 ---
+        # 1. 훈련된 컬럼 목록을 기반으로 빈 데이터프레임 생성
+        input_processed = pd.DataFrame(columns=self.onehot_columns)
+        input_processed.loc[0] = 0.0
+
+        # 2. 수치형 데이터 변환 및 채우기
+        numeric_features = [col for col in self.scaler.feature_names_in_ if col in input_dict]
+        if numeric_features:
+            numeric_df = pd.DataFrame([input_dict])[numeric_features]
+            scaled_numeric = self.scaler.transform(numeric_df)
+            for i, col in enumerate(numeric_features):
+                input_processed.loc[0, col] = scaled_numeric[0, i]
+
+        # 3. 다중 선택 피처 변환 및 채우기
+        multilabel_cols = ['purpose', 'prefercolor', 'fashionstyle']
+        for col in multilabel_cols:
+            if col in input_dict and input_dict[col]:
+                values = str(input_dict[col]).split(',')
+                for val in values:
+                    dummy_col_name = f"{col}_{val.strip()}"
+                    if dummy_col_name in input_processed.columns:
+                        input_processed.loc[0, dummy_col_name] = 1
+
+        # 4. 단일 선택 피처 변환 및 채우기
+        single_label_cols = ['gender', 'mbti']
+        for col in single_label_cols:
+            if col in input_dict and input_dict[col]:
+                dummy_col_name = f"{col}_{input_dict[col]}"
+                if dummy_col_name in input_processed.columns:
+                    input_processed.loc[0, dummy_col_name] = 1
+
         # 예측
-        y_pred_bin = self.model.predict(input_scaled)
+        y_pred_bin = self.model.predict(input_processed)
         # 바이너리 결과를 라벨 리스트로 변환
         predicted_categories = self.mlb.inverse_transform(y_pred_bin)[0]
         # 모든 카테고리에 대해 confidence 반환
-        y_pred_proba = self.model.predict_proba(input_scaled)
+        y_pred_proba = self.model.predict_proba(input_processed)
         confidences = {self.mlb.classes_[i]: y_pred_proba[0][i] for i in range(len(self.mlb.classes_))}
         return predicted_categories, confidences
     
@@ -475,76 +476,63 @@ class PerfumeRecommendationModel:
             print("새로 훈련합니다.")
             self.train() 
 
-    def simplify_perfume_category_list(self, category_text):
+    def simplify_perfume_category_list(self, category_text: str) -> List[str]:
         """
-        복합 향수 카테고리를 리스트로 변환하고, 각 항목을 19개 표준 카테고리(영문)로 강력하게 매핑합니다.
-        괄호, 설명, 띄어쓰기, 오타, 유사 표현 등도 모두 표준 카테고리로 매핑. 매핑 실패시 'other'.
-        플로럴 계열(white floral, light floral, floral)은 모두 'floral'로 통일.
+        복합 향수 카테고리를 리스트로 변환하고, 각 항목을 표준 카테고리(영문)로 강력하게 매핑합니다.
+        유사 카테고리를 통합하여 데이터 품질과 모델 성능을 향상시킵니다.
         """
         import re
         if pd.isna(category_text):
             return []
-        std_categories = [
-            'citrus', 'floral', 'woody', 'oriental', 'musk', 'aquatic', 'green', 'gourmand', 'powdery', 'fruity',
-            'aromatic', 'chypre', 'fougere', 'amber', 'spicy', 'light floral', 'white floral', 'casual', 'cozy'
-        ]
+        
+        # 명확성과 유지보수성을 위해 재구성된 매핑 규칙
+        # 유사 카테고리를 통합하고, 긴 키워드를 우선적으로 매칭합니다.
         mapping = {
-            '시트러스': 'citrus', '레몬': 'citrus', '자몽': 'citrus', '상큼': 'citrus', 'citrus': 'citrus',
-            '플로럴': 'floral', '꽃': 'floral', '장미': 'floral', '백합': 'floral', 'rose': 'floral', 'lily': 'floral', 'floral': 'floral',
-            '우디': 'woody', '나무': 'woody', '숲': 'woody', 'cedar': 'woody', 'wood': 'woody', 'woody': 'woody',
-            '오리엔탈': 'oriental', '신비': 'oriental', 'oriental': 'oriental',
-            '머스크': 'musk', '포근': 'musk', '따뜻': 'musk', 'musk': 'musk',
-            '아쿠아틱': 'aquatic', '바다': 'aquatic', '비누': 'aquatic', 'aquatic': 'aquatic',
-            '그린': 'green', '풀': 'green', '허브': 'green', '자연': 'green', 'green': 'green',
-            '구르망': 'gourmand', '바닐라': 'gourmand', '초콜릿': 'gourmand', '달콤': 'gourmand', 'gourmand': 'gourmand',
-            '파우더리': 'powdery', '파우더': 'powdery', '부드럽': 'powdery', 'powdery': 'powdery',
-            '프루티': 'fruity', '과일': 'fruity', '사과': 'fruity', '복숭아': 'fruity', '베리': 'fruity', 'fruity': 'fruity',
-            '아로마틱': 'aromatic', '라벤더': 'aromatic', 'aromatic': 'aromatic',
-            '시프레': 'chypre', '오크모스': 'chypre', '베르가못': 'chypre', '패츌리': 'chypre', 'chypre': 'chypre',
-            '푸제르': 'fougere', 'ferny': 'fougere', 'fougere': 'fougere',
-            '앰버': 'amber', 'amber': 'amber',
-            '스파이시': 'spicy', '계피': 'spicy', '정향': 'spicy', '후추': 'spicy', 'spicy': 'spicy',
-            '라이트 플로럴': 'light floral', '작은 꽃': 'light floral', '미모사': 'light floral', '은방울꽃': 'light floral', 'light floral': 'light floral',
-            '화이트 플로럴': 'white floral', '튜베로즈': 'white floral', '가드니아': 'white floral', '오렌지 블라썸': 'white floral', 'white floral': 'white floral',
-            '캐쥬얼': 'casual', '린넨': 'casual', '면': 'casual', '일상': 'casual', 'casual': 'casual',
-            '코지': 'cozy', '커피': 'cozy', '우드': 'cozy', '포근하고 푹신': 'cozy', 'cozy': 'cozy',
+            # Floral 계열 (통합)
+            '화이트 플로럴': 'floral', '라이트 플로럴': 'floral', '플로럴': 'floral', 'white floral': 'floral', 'light floral': 'floral',
+            '장미': 'floral', 'rose': 'floral', '자스민': 'floral', '백합': 'floral', '꽃': 'floral',
+            # Woody 계열 (통합)
+            '우디': 'woody', '우드': 'woody', '나무': 'woody', '샌달우드': 'woody', '시더우드': 'woody', '숲': 'woody', '오리엔탈': 'woody', '신비': 'woody',
+            # Citrus 계열
+            '시트러스': 'citrus', '상큼': 'citrus', '레몬': 'citrus', '자몽': 'citrus', '베르가못': 'citrus',
+            # 기타 주요 카테고리 (한글/영문/유사어 포함)
+            '머스크': 'musk', '포근': 'musk',
+            '아쿠아틱': 'aquatic', '바다': 'aquatic', '비누': 'aquatic',
+            '그린': 'green', '풀': 'green', '허브': 'green', '스파이시': 'green', '후추': 'green',
+            '아로마틱': 'aromatic', '라벤더': 'aromatic',
+            '프루티': 'fruity', '과일': 'fruity',
+            '구르망': 'gourmand', '달콤': 'gourmand', '바닐라': 'gourmand',
+            '파우더리': 'powdery', '파우더': 'powdery',
+            '시프레': 'chypre', '푸제르': 'fougere', '앰버': 'amber',
+            '캐쥬얼': 'casual', '일상': 'casual',
+            '코지': 'cozy', '커피': 'cozy',
         }
+        # 긴 키워드가 먼저 매칭되도록 정렬 (e.g., '화이트 플로럴'이 '플로럴'보다 먼저)
+        sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+
         def clean_label(label):
             label = str(label)
-            label = re.sub(r'\([^)]*\)', '', label)
-            label = re.sub(r'[^\w가-힣 ]', '', label)
+            label = re.sub(r'\([^)]*\)', '', label)  # 괄호와 내용 제거
+            label = re.sub(r'[^\w가-힣 ]', '', label)  # 특수문자 제거
             label = label.strip().lower()
             return label
-        raw_cats = re.split(r'[,/]|\n|\t', str(category_text))
+        raw_cats = re.split(r'[,/]', str(category_text))
         result = set()
         for raw in raw_cats:
             cleaned = clean_label(raw)
-            found = None
-            for key, std in mapping.items():
+            if not cleaned:
+                continue
+            # 정렬된 키로 매칭하여 가장 구체적인 키워드를 먼저 찾음
+            for key in sorted_keys:
                 if key in cleaned:
-                    found = std
+                    result.add(mapping[key])
                     break
-            if found:
-                result.add(found)
-            else:
-                for std in std_categories:
-                    if std in cleaned:
-                        result.add(std)
-                        break
-                else:
-                    if cleaned:
-                        result.add('other')
-        # 플로럴 계열 통일
-        if any(x in result for x in ['floral', 'white floral', 'light floral']):
-            result.discard('white floral')
-            result.discard('light floral')
-            result.add('floral')
         return list(result) 
 
     NOTE_CATEGORY_MAP = {
         "top": ["citrus", "fruity", "aquatic", "green"],
-        "middle": ["floral", "powdery", "spicy", "aromatic", "fougere"],
-        "base": ["amber", "oriental", "chypre", "gourmand", "cozy", "musk", "woody"]
+        "middle": ["floral", "powdery", "aromatic", "fougere"],
+        "base": ["amber", "chypre", "gourmand", "cozy", "musk", "woody"]
     }
 
     def recommend_notes_by_confidence(self, confidence_dict):
@@ -562,4 +550,4 @@ class PerfumeRecommendationModel:
                     best_cat = cat
                     best_conf = conf
             result[note] = {"category": best_cat, "confidence": best_conf}
-        return result 
+        return result

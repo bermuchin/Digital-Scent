@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
 
 def force_retrain():
     try:
-        print("모델 강제 재훈련 시작...")
+        print("랜덤 포레스트(RFC) 모델 강제 재훈련 시작...")
         
         from backend.app.models.recommendation_model import PerfumeRecommendationModel
         
@@ -31,14 +31,24 @@ def force_retrain():
             prefercolor='흰색'
         )
         # 탑/미들/베이스 노트별 추천
-        notes = model.recommend_notes_by_confidence(confidence)
-        print(f"✅ 예측 테스트 성공: (탑: {notes['top']['category']}, 미들: {notes['middle']['category']}, 베이스: {notes['base']['category']})")
+        note_recommendations = model.recommend_notes_by_confidence(confidence)
+        top = note_recommendations['top']
+        middle = note_recommendations['middle']
+        base = note_recommendations['base']
+
+        # --- 상세 결과 출력 ---
+        print(f"\n✅ 예측 테스트 성공: (탑: {top['category']}, 미들: {middle['category']}, 베이스: {base['category']})")
         print("  [상세 신뢰도]")
-        for note in ['top', 'middle', 'base']:
-            cat = notes[note]['category']
-            conf = notes[note]['confidence']
-            print(f"    - {note.capitalize()}({cat}): {conf:.3f}")
-        print("[DEBUG] 예측 테스트 완료!")
+        print(f"    - Top({top['category']}): {top['confidence']:.3f}")
+        print(f"    - Middle({middle['category']}): {middle['confidence']:.3f}")
+        print(f"    - Base({base['category']}): {base['confidence']:.3f}")
+
+        selected_categories = {top['category'], middle['category'], base['category']}
+        remaining_confidences = {cat: conf for cat, conf in confidence.items() if cat not in selected_categories}
+        sorted_remaining = sorted(remaining_confidences.items(), key=lambda item: item[1], reverse=True)
+        print("  [기타 노트 신뢰도]")
+        for cat, conf in sorted_remaining:
+            print(f"    - {cat:<12s}: {conf:.3f}")
         
         return True
         
