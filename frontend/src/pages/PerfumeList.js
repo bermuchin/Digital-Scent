@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Flower, Star } from 'lucide-react';
 import { perfumeAPI } from '../services/api';
@@ -11,21 +11,16 @@ const PerfumeList = () => {
   const [selectedPrice, setSelectedPrice] = useState('');
   const [categories, setCategories] = useState([]);
 
-  useEffect(() => {
-    loadCategories();
-    loadPerfumes();
-  }, []);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const response = await perfumeAPI.getCategories();
       setCategories(response.data);
     } catch (error) {
       console.error('카테고리 로드 실패:', error);
     }
-  };
+  }, []);
 
-  const loadPerfumes = async () => {
+  const loadPerfumes = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
@@ -39,11 +34,12 @@ const PerfumeList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory, selectedPrice]);
 
   useEffect(() => {
+    loadCategories();
     loadPerfumes();
-  }, [selectedCategory, selectedPrice]);
+  }, [loadCategories, loadPerfumes]);
 
   const filteredPerfumes = perfumes.filter(perfume =>
     perfume.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -325,4 +321,4 @@ const PerfumeList = () => {
   );
 };
 
-export default PerfumeList; 
+export default PerfumeList;

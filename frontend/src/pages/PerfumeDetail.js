@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback} from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, Users, Heart, Share2, BookOpen } from 'lucide-react';
 import { perfumeAPI } from '../services/api';
@@ -14,7 +14,7 @@ const PerfumeDetail = () => {
     loadPerfumeData();
   }, [id]);
 
-  const loadPerfumeData = async () => {
+   const loadPerfumeData = useCallback(async () => {
     setLoading(true);
     try {
       const [perfumeResponse, recipesResponse] = await Promise.all([
@@ -28,7 +28,7 @@ const PerfumeDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   // 카테고리 통일 함수
   const unifyFloral = (category) => {

@@ -293,7 +293,6 @@ class PerfumeRecommendationModel:
         print(f"[DEBUG] GridSearch 최적 파라미터: {grid_search.best_params_}")
         # 기존: self.model = OneVsRestClassifier(best_rf)
         # 변경: ClassifierChain 적용
-        from sklearn.multioutput import ClassifierChain
         self.model = ClassifierChain(best_rf)
         self.model.fit(X_train, y_train, sample_weight=w_train)
         # 모델 평가 - 멀티라벨 분류에 적합한 지표들
